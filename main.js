@@ -358,6 +358,11 @@ function clickOnStream(stream, xPercent, yPercent) {
     robot.mouseClick();
     
     console.log(`Robot: Clicked stream ${stream + 1} at (${xPercent}%, ${yPercent}%)`);
+    
+    // Hover back to center to hide controls
+    setTimeout(() => {
+      robot.moveMouse(centerX, centerY);
+    }, 250);
   }, 250);
 }
 
