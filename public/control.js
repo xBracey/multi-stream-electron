@@ -5,7 +5,9 @@ const ws = new WebSocket(`${protocol}//${location.host}`);
 
 const statusEl = document.getElementById('status');
 let mutePositions = [null, null, null, null];
+let streams = ['', '', '', ''];
 let focused = 0;
+let fullscreenStream = null;
 let isRecording = false;
 let recordStreamIndex = null;
 
@@ -35,13 +37,18 @@ ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
   
   if (data.type === 'state') {
+    // Update streams if changed
+    if (data.streams) {
+      streams = data.streams;
+      updateStreamInputs();
+    }
+    
     // Update focus buttons
+    focused = data.focused;
     document.querySelectorAll('.focus-btn').forEach(btn => {
       const stream = parseInt(btn.closest('.stream-section').dataset.stream);
-      btn.classList.toggle('focus-active', stream === data.focused);
+      btn.classList.toggle('focus-active', stream === focused);
     });
-    
-    focused = data.focused;
     
     // Store mute positions and update UI
     if (data.mutePositions) {
@@ -60,6 +67,16 @@ ws.onmessage = (event) => {
   if (data.type === 'recordingInstruction') {
     statusEl.textContent = `🎥 Move mouse to mute button and click on TV!`;
     statusEl.className = 'status recording';
+  }
+  
+  if (data.type === 'fullscreenState') {
+    fullscreenStream = data.stream;
+    updateFullscreenButtons();
+  }
+  
+  if (data.type === 'state' && data.fullscreenStream !== undefined) {
+    fullscreenStream = data.fullscreenStream;
+    updateFullscreenButtons();
   }
 };
 
@@ -88,6 +105,15 @@ function updateMuteUI() {
   });
 }
 
+function updateStreamInputs() {
+  document.querySelectorAll('.stream-section').forEach((section, i) => {
+    const input = section.querySelector('.stream-url');
+    if (input && streams[i] !== undefined) {
+      input.value = streams[i] || '';
+    }
+  });
+}
+
 function updateRecordingUI() {
   document.querySelectorAll('.record-btn').forEach(btn => {
     const stream = parseInt(btn.dataset.stream);
@@ -101,31 +127,62 @@ function updateRecordingUI() {
   }
 }
 
+function updateFullscreenButtons() {
+  document.querySelectorAll('.fullscreen-btn').forEach(btn => {
+    const stream = parseInt(btn.closest('.stream-section').dataset.stream);
+    btn.classList.toggle('fullscreen-active', stream === fullscreenStream);
+    btn.textContent = stream === fullscreenStream ? '✕' : '⛶';
+  });
+}
+
 // Stream-specific buttons
 document.querySelectorAll('.stream-section').forEach(section => {
   const stream = parseInt(section.dataset.stream);
   
+  // Stream URL input
+  const urlInput = section.querySelector('.stream-url');
+  urlInput?.addEventListener('change', () => {
+    streams[stream] = urlInput.value;
+    send('setStream', { stream, url: urlInput.value });
+  });
+  urlInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      streams[stream] = urlInput.value;
+      send('setStream', { stream, url: urlInput.value });
+    }
+  });
+  
+  // Play button
   section.querySelector('.play-btn')?.addEventListener('click', () => {
     send('autoplay', { stream });
   });
   
+  // Refresh button
   section.querySelector('.refresh-btn')?.addEventListener('click', () => {
     send('refresh', { stream });
   });
   
+  // Focus button
   section.querySelector('.focus-btn')?.addEventListener('click', () => {
     send('audioFocus', { stream });
   });
   
+  // Fullscreen button - toggle
   section.querySelector('.fullscreen-btn')?.addEventListener('click', () => {
-    send('fullscreen', { stream });
+    if (fullscreenStream === stream) {
+      // Already fullscreen, close it
+      send('exitfullscreen');
+    } else {
+      // Go fullscreen on this stream
+      send('fullscreen', { stream });
+    }
   });
   
+  // Mute button
   section.querySelector('.mute-btn')?.addEventListener('click', () => {
     if (mutePositions[stream]) {
       send('mute', { stream });
     } else {
-      // Shake animation
       const btn = section.querySelector('.mute-btn');
       btn.style.animation = 'shake 0.3s';
       setTimeout(() => btn.style.animation = '', 300);
@@ -146,35 +203,12 @@ document.getElementById('muteAllBtn')?.addEventListener('click', () => {
   send('muteall');
 });
 
-// Exit fullscreen
-document.getElementById('exitFullscreenBtn')?.addEventListener('click', () => {
-  send('exitfullscreen');
-});
-
 // Record buttons
 document.querySelectorAll('.record-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const stream = parseInt(btn.dataset.stream);
     send('startRecord', { stream });
   });
-});
-
-// Apply to all / Reset
-document.getElementById('applyToAllBtn')?.addEventListener('click', () => {
-  const firstSaved = mutePositions.find(p => p);
-  if (firstSaved) {
-    send('applyToAllStreams', { x: firstSaved.x, y: firstSaved.y });
-  } else {
-    alert('Record a position on at least one stream first!');
-  }
-});
-
-document.getElementById('resetMuteBtn')?.addEventListener('click', () => {
-  if (confirm('Reset all mute button positions?')) {
-    mutePositions = [null, null, null, null];
-    send('resetmutePosition');
-    updateMuteUI();
-  }
 });
 
 // Add CSS for shake animation

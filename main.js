@@ -14,6 +14,7 @@ let config = {
 let mutePositions = [null, null, null, null];
 let isRecordingMode = false;
 let recordStreamIndex = null;
+let fullscreenStream = null;
 
 const server = http.createServer((req, res) => {
   let filePath;
@@ -57,7 +58,8 @@ wss.on('connection', (ws) => {
     focused: config.focused,
     mutePositions: mutePositions,
     isRecording: isRecordingMode,
-    recordStreamIndex: recordStreamIndex
+    recordStreamIndex: recordStreamIndex,
+    fullscreenStream: fullscreenStream
   }));
 
   ws.on('message', (message) => {
@@ -91,7 +93,9 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'exitfullscreen':
+      fullscreenStream = null;
       mainWindow?.webContents.send('exitfullscreen');
+      broadcastState();
       break;
 
     case 'autoplay':
@@ -103,13 +107,10 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'fullscreen':
+      fullscreenStream = cmd.stream;
       config.focused = cmd.stream;
       broadcastState();
       mainWindow?.webContents.send('fullscreen', parseInt(cmd.stream));
-      break;
-
-    case 'fullscreenall':
-      clickAllQuadrants(50, 50);
       break;
 
     case 'mute':
@@ -184,9 +185,15 @@ function handleCommand(cmd, sender) {
       saveMutePositions();
       broadcastState();
       console.log('Robot: All mute positions reset');
-      
-      // Also clear the file
-      fs.writeFileSync(path.join(__dirname, 'mute-positions.json'), JSON.stringify(mutePositions, null, 2));
+      break;
+
+    case 'setStream':
+      if (cmd.stream !== undefined && cmd.url !== undefined) {
+        config.streams[cmd.stream] = cmd.url;
+        saveConfig();
+        mainWindow?.webContents.send('setStream', { stream: cmd.stream, url: cmd.url });
+        broadcastState();
+      }
       break;
 
     case 'config':
@@ -261,8 +268,6 @@ function captureClickPosition() {
   // Position relative to quadrant
   const relToQuadX = mousePos.x - bounds.x - quadrantLeft;
   const relToQuadY = mousePos.y - bounds.y - quadrantTop;
-  
-  console.log('Robot: Relative to quadrant:', { relToQuadX, relToQuadY, quadrantWidth, quadrantHeight });
   
   // Convert to percentage (0-100)
   const xPercent = Math.round((relToQuadX / quadrantWidth) * 100);
@@ -360,7 +365,8 @@ function broadcastState() {
     focused: config.focused,
     mutePositions: mutePositions,
     isRecording: isRecordingMode,
-    recordStreamIndex: recordStreamIndex
+    recordStreamIndex: recordStreamIndex,
+    fullscreenStream: fullscreenStream
   });
   
   wss.clients.forEach(client => {
