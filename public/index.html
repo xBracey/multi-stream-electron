@@ -21,43 +21,37 @@
     
     .container {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr;
-      grid-template-rows: auto 1fr auto;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr auto;
       height: 100vh;
       gap: 8px;
       padding: 8px;
     }
     
     .stream-section {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 8px;
       align-items: center;
-      gap: 12px;
       background: #1a1a2e;
       border-radius: 12px;
       padding: 16px;
     }
     
     .stream-section h3 {
+      grid-column: 1 / -1;
+      text-align: center;
       font-size: 14px;
       margin-bottom: 4px;
     }
     
-    .stream-section .label {
-      font-size: 11px;
-      color: #666;
-    }
-    
     .stream-config {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 8px;
-      width: 100%;
+      grid-column: 1 / -1;
     }
     
     .stream-config input {
-      flex: 1;
+      width: 100%;
       background: #0a0a0f;
       border: 1px solid #3a3a5e;
       border-radius: 6px;
@@ -71,14 +65,28 @@
       border-color: #4ecca3;
     }
     
-    .stream-section button {
-      width: 70px;
-      height: 36px;
-    }
-    
     .stream-section .btn-row {
       display: flex;
       gap: 8px;
+      justify-content: center;
+    }
+    
+    .stream-section button {
+      width: 60px;
+      height: 36px;
+    }
+    
+    .stream-section .mute-btn {
+      grid-column: 1 / -1;
+      width: 130px;
+      margin: 0 auto;
+    }
+    
+    .stream-section .label {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 10px;
+      color: #666;
     }
     
     .center-section {
@@ -202,7 +210,9 @@
     <!-- Stream 1 (Top-Left) -->
     <div class="stream-section" data-stream="0">
       <h3>Stream 1 ↖️</h3>
-      <input type="text" class="stream-url" placeholder="Stream URL or m3u8...">
+      <div class="stream-config">
+        <input type="text" class="stream-url" placeholder="Stream URL...">
+      </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>
         <button class="btn refresh-btn">↻</button>
@@ -211,14 +221,16 @@
         <button class="btn focus-btn">🔊</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇</button>
-      <span class="label">Mute: <span class="mute-status">-</span></span>
+      <button class="btn mute-btn">🔇 Mute</button>
+      <span class="label">Position: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Stream 2 (Top-Right) -->
     <div class="stream-section" data-stream="1">
       <h3>Stream 2 ↗️</h3>
-      <input type="text" class="stream-url" placeholder="Stream URL or m3u8...">
+      <div class="stream-config">
+        <input type="text" class="stream-url" placeholder="Stream URL...">
+      </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>
         <button class="btn refresh-btn">↻</button>
@@ -227,14 +239,16 @@
         <button class="btn focus-btn">🔊</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇</button>
-      <span class="label">Mute: <span class="mute-status">-</span></span>
+      <button class="btn mute-btn">🔇 Mute</button>
+      <span class="label">Position: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Stream 3 (Bottom-Left) -->
     <div class="stream-section" data-stream="2">
       <h3>Stream 3 ↙️</h3>
-      <input type="text" class="stream-url" placeholder="Stream URL or m3u8...">
+      <div class="stream-config">
+        <input type="text" class="stream-url" placeholder="Stream URL...">
+      </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>
         <button class="btn refresh-btn">↻</button>
@@ -243,14 +257,16 @@
         <button class="btn focus-btn">🔊</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇</button>
-      <span class="label">Mute: <span class="mute-status">-</span></span>
+      <button class="btn mute-btn">🔇 Mute</button>
+      <span class="label">Position: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Stream 4 (Bottom-Right) -->
     <div class="stream-section" data-stream="3">
       <h3>Stream 4 ↘️</h3>
-      <input type="text" class="stream-url" placeholder="Stream URL or m3u8...">
+      <div class="stream-config">
+        <input type="text" class="stream-url" placeholder="Stream URL...">
+      </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>
         <button class="btn refresh-btn">↻</button>
@@ -259,8 +275,8 @@
         <button class="btn focus-btn">🔊</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇</button>
-      <span class="label">Mute: <span class="mute-status">-</span></span>
+      <button class="btn mute-btn">🔇 Mute</button>
+      <span class="label">Position: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Center Controls -->
