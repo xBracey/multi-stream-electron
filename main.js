@@ -395,13 +395,6 @@ function clickAllQuadrants(xPercent = 50, yPercent = 50, singleStream = null) {
   });
 }
 
-function startAutoClick() {
-  setTimeout(() => {
-    console.log('Robot: Initial autoplay click');
-    clickAllQuadrants();
-  }, 5000);
-}
-
 function broadcastState() {
   const message = JSON.stringify({
     type: 'state',
@@ -466,10 +459,6 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-  });
-
-  mainWindow.webContents.on('did-finish-load', () => {
-    startAutoClick();
   });
 }
 
