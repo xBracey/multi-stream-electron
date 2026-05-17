@@ -16,7 +16,6 @@ let isRecordingMode = false;
 let recordStreamIndex = null;
 let fullscreenStream = null;
 let previousFocus = 0;
-let previousFocus = 0;
 
 const server = http.createServer((req, res) => {
   let filePath;
