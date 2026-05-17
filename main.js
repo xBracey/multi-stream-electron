@@ -312,11 +312,6 @@ function startAutoClick() {
     console.log('Robot: Initial autoplay click');
     clickAllQuadrants();
   }, 5000);
-  
-  setInterval(() => {
-    console.log('Robot: Scheduled autoplay click');
-    clickAllQuadrants();
-  }, 30000);
 }
 
 function broadcastState() {
