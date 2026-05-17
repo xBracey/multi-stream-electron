@@ -48,10 +48,12 @@
     
     .stream-config {
       grid-column: 1 / -1;
+      display: flex;
+      gap: 4px;
     }
     
     .stream-config input {
-      width: 100%;
+      flex: 1;
       background: #0a0a0f;
       border: 1px solid #3a3a5e;
       border-radius: 6px;
@@ -63,6 +65,13 @@
     .stream-config input:focus {
       outline: none;
       border-color: #4ecca3;
+    }
+    
+    .stream-config .save-btn {
+      padding: 6px 10px;
+      font-size: 11px;
+      background: #4ecca3;
+      color: #0a0a0f;
     }
     
     .stream-section .btn-row {
@@ -212,6 +221,7 @@
       <h3>Stream 1 ↖️</h3>
       <div class="stream-config">
         <input type="text" class="stream-url" placeholder="Stream URL...">
+        <button class="btn save-btn">Save</button>
       </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>
@@ -232,6 +242,7 @@
       <h3>Stream 2 ↗️</h3>
       <div class="stream-config">
         <input type="text" class="stream-url" placeholder="Stream URL...">
+        <button class="btn save-btn">Save</button>
       </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>
@@ -252,6 +263,7 @@
       <h3>Stream 3 ↙️</h3>
       <div class="stream-config">
         <input type="text" class="stream-url" placeholder="Stream URL...">
+        <button class="btn save-btn">Save</button>
       </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>
@@ -272,6 +284,7 @@
       <h3>Stream 4 ↘️</h3>
       <div class="stream-config">
         <input type="text" class="stream-url" placeholder="Stream URL...">
+        <button class="btn save-btn">Save</button>
       </div>
       <div class="btn-row">
         <button class="btn play-btn">▶</button>

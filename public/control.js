@@ -141,15 +141,17 @@ document.querySelectorAll('.stream-section').forEach(section => {
   
   // Stream URL input
   const urlInput = section.querySelector('.stream-url');
-  urlInput?.addEventListener('change', () => {
-    streams[stream] = urlInput.value;
-    send('setStream', { stream, url: urlInput.value });
-  });
   urlInput?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       streams[stream] = urlInput.value;
       send('setStream', { stream, url: urlInput.value });
     }
+  });
+  
+  // Save button
+  section.querySelector('.save-btn')?.addEventListener('click', () => {
+    streams[stream] = urlInput.value;
+    send('setStream', { stream, url: urlInput.value });
   });
   
   // Play button
