@@ -119,12 +119,14 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'audioFocus':
-      // Click center of focused stream, mute all others
+      // Mute all other streams, unmute the selected one
       const focusStream = cmd.stream;
       config.focused = focusStream;
       
-      // Click center of the focused stream to unpause/play
-      clickOnStream(focusStream, 50, 50);
+      // Click mute button of focused stream to unmute (toggle)
+      if (mutePositions[focusStream]) {
+        clickOnStream(focusStream, mutePositions[focusStream].x, mutePositions[focusStream].y);
+      }
       
       // Mute all other streams
       mutePositions.forEach((pos, i) => {
