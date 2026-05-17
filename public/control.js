@@ -45,7 +45,7 @@ ws.onmessage = (event) => {
     
     // Update focus buttons
     focused = data.focused;
-    document.querySelectorAll('.focus-btn').forEach(btn => {
+    document.querySelectorAll('.set-focus-btn').forEach(btn => {
       const stream = parseInt(btn.closest('.stream-section').dataset.stream);
       btn.classList.toggle('focus-active', stream === focused);
     });
@@ -162,30 +162,17 @@ document.querySelectorAll('.stream-section').forEach(section => {
     send('refresh', { stream });
   });
   
-  // Focus button
-  section.querySelector('.focus-btn')?.addEventListener('click', () => {
-    send('audioFocus', { stream });
+  // Set focus button - only updates internal state
+  section.querySelector('.set-focus-btn')?.addEventListener('click', () => {
+    send('setFocus', { stream });
   });
   
   // Fullscreen button - toggle
   section.querySelector('.fullscreen-btn')?.addEventListener('click', () => {
     if (fullscreenStream === stream) {
-      // Already fullscreen, close it
       send('exitfullscreen');
     } else {
-      // Go fullscreen on this stream
       send('fullscreen', { stream });
-    }
-  });
-  
-  // Mute button
-  section.querySelector('.mute-btn')?.addEventListener('click', () => {
-    if (mutePositions[stream]) {
-      send('mute', { stream });
-    } else {
-      const btn = section.querySelector('.mute-btn');
-      btn.style.animation = 'shake 0.3s';
-      setTimeout(() => btn.style.animation = '', 300);
     }
   });
 });
@@ -209,6 +196,16 @@ document.querySelectorAll('.record-btn').forEach(btn => {
     const stream = parseInt(btn.dataset.stream);
     send('startRecord', { stream });
   });
+});
+
+// Sync focus button - reconciles the mute state to match current focus
+document.getElementById('syncFocusBtn')?.addEventListener('click', () => {
+  send('syncFocus');
+});
+
+// Apply focus button - actually presses the mute buttons to match current focus state
+document.getElementById('applyFocusBtn')?.addEventListener('click', () => {
+  send('audioFocus', { stream: focused });
 });
 
 // Add CSS for shake animation

@@ -218,11 +218,10 @@
         <button class="btn refresh-btn">↻</button>
       </div>
       <div class="btn-row">
-        <button class="btn focus-btn">🔊</button>
+        <button class="btn set-focus-btn">📍</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇 Mute</button>
-      <span class="label">Position: <span class="mute-status">-</span></span>
+      <span class="label">Mute: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Stream 2 (Top-Right) -->
@@ -236,11 +235,10 @@
         <button class="btn refresh-btn">↻</button>
       </div>
       <div class="btn-row">
-        <button class="btn focus-btn">🔊</button>
+        <button class="btn set-focus-btn">📍</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇 Mute</button>
-      <span class="label">Position: <span class="mute-status">-</span></span>
+      <span class="label">Mute: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Stream 3 (Bottom-Left) -->
@@ -254,11 +252,10 @@
         <button class="btn refresh-btn">↻</button>
       </div>
       <div class="btn-row">
-        <button class="btn focus-btn">🔊</button>
+        <button class="btn set-focus-btn">📍</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇 Mute</button>
-      <span class="label">Position: <span class="mute-status">-</span></span>
+      <span class="label">Mute: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Stream 4 (Bottom-Right) -->
@@ -272,26 +269,31 @@
         <button class="btn refresh-btn">↻</button>
       </div>
       <div class="btn-row">
-        <button class="btn focus-btn">🔊</button>
+        <button class="btn set-focus-btn">📍</button>
         <button class="btn fullscreen-btn">⛶</button>
       </div>
-      <button class="btn mute-btn">🔇 Mute</button>
-      <span class="label">Position: <span class="mute-status">-</span></span>
+      <span class="label">Mute: <span class="mute-status">-</span></span>
     </div>
     
     <!-- Center Controls -->
     <div class="center-section">
       <div class="center-group">
-        <h4>🎯 Play All</h4>
-        <button class="btn" id="playAllBtn">▶ All</button>
+        <h4>▶️ All Streams</h4>
+        <div class="btn-row">
+          <button class="btn" id="playAllBtn">Play</button>
+          <button class="btn" id="refreshAllBtn">Refresh</button>
+        </div>
       </div>
       <div class="center-group">
-        <h4>🔄 Refresh All</h4>
-        <button class="btn" id="refreshAllBtn">↻ All</button>
+        <h4>🎯 Focus</h4>
+        <div class="btn-row">
+          <button class="btn" id="applyFocusBtn">Apply</button>
+          <button class="btn" id="syncFocusBtn">Sync</button>
+        </div>
       </div>
       <div class="center-group">
-        <h4>🔇 Mute All</h4>
-        <button class="btn" id="muteAllBtn">🔇 All</button>
+        <h4>🔇 Mute</h4>
+        <button class="btn" id="muteAllBtn">Mute All</button>
       </div>
       <div class="center-group">
         <h4>🎯 Record</h4>

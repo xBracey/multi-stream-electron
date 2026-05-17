@@ -196,6 +196,36 @@ function handleCommand(cmd, sender) {
       }
       break;
 
+    case 'setFocus':
+      // Only update internal state, don't press any mute buttons
+      config.focused = cmd.stream;
+      broadcastState();
+      console.log(`Robot: Focus set to stream ${cmd.stream + 1} (no mute buttons pressed)`);
+      break;
+
+
+    case 'syncFocus':
+      // Apply the current focus state to mute buttons
+      const syncFocused = config.focused;
+      console.log(`Robot: Syncing focus. Current focus: Stream ${syncFocused + 1}`);
+      
+      // Click mute button of focused stream to ensure it's unmuted
+      if (mutePositions[syncFocused]) {
+        clickOnStream(syncFocused, mutePositions[syncFocused].x, mutePositions[syncFocused].y);
+      }
+      
+      // Mute all other streams
+      let syncDelay = 250;
+      mutePositions.forEach((pos, i) => {
+        if (pos && i !== syncFocused) {
+          setTimeout(() => clickOnStream(i, pos.x, pos.y), syncDelay);
+          syncDelay += 250;
+        }
+      });
+      
+      console.log(`Robot: Sync complete. Stream ${syncFocused + 1} unmuted, others muted.`);
+      break;
+
     case 'config':
       if (cmd.action === 'get') {
         sender.send(JSON.stringify({
