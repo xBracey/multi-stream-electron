@@ -175,6 +175,17 @@ document.querySelectorAll('.stream-section').forEach(section => {
       send('fullscreen', { stream });
     }
   });
+  
+  // Mute button - toggles mute for this stream
+  section.querySelector('.mute-btn')?.addEventListener('click', () => {
+    if (mutePositions[stream]) {
+      send('mute', { stream });
+    } else {
+      const btn = section.querySelector('.mute-btn');
+      btn.style.animation = 'shake 0.3s';
+      setTimeout(() => btn.style.animation = '', 300);
+    }
+  });
 });
 
 // Center section buttons
