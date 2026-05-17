@@ -233,6 +233,42 @@
       }
     });
     
+    window.electronAPI.onSetStream((data) => {
+      if (data && data.stream !== undefined && data.url !== undefined) {
+        streams[data.stream] = data.url;
+        saveToStorage();
+        
+        // Update the iframe for this stream
+        const iframe = document.getElementById('iframe-' + data.stream);
+        if (iframe) {
+          // Remove old iframe and create new one with new src
+          const card = iframe.parentElement;
+          iframe.remove();
+          const newIframe = document.createElement('iframe');
+          newIframe.id = 'iframe-' + data.stream;
+          newIframe.src = data.url;
+          newIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-forms allow-scripts');
+          newIframe.setAttribute('allow', 'autoplay; fullscreen');
+          newIframe.setAttribute('allowfullscreen', 'true');
+          card.insertBefore(newIframe, card.firstChild);
+        } else if (data.url) {
+          // Create iframe if it doesn't exist
+          const card = document.getElementById('card-' + data.stream);
+          if (card) {
+            const newIframe = document.createElement('iframe');
+            newIframe.id = 'iframe-' + data.stream;
+            newIframe.src = data.url;
+            newIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-forms allow-scripts');
+            newIframe.setAttribute('allow', 'autoplay; fullscreen');
+            newIframe.setAttribute('allowfullscreen', 'true');
+            card.appendChild(newIframe);
+          }
+        }
+        
+        console.log('Stream', data.stream + 1, 'updated to:', data.url);
+      }
+    });
+    
     window.electronAPI.onClick(() => {
       const iframes = document.querySelectorAll('iframe');
       iframes.forEach((iframe) => {

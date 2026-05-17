@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFullscreen: (callback) => ipcRenderer.on('fullscreen', (_, stream) => callback(stream)),
   onExitFullscreen: (callback) => ipcRenderer.on('exitfullscreen', () => callback()),
   onConfig: (callback) => ipcRenderer.on('config', (_, streams) => callback(streams)),
+  onSetStream: (callback) => ipcRenderer.on('setStream', (_, data) => callback(data)),
   onPlay: (callback) => ipcRenderer.on('play', (_, stream) => callback(stream)),
   onPause: (callback) => ipcRenderer.on('pause', (_, stream) => callback(stream)),
   onClick: (callback) => ipcRenderer.on('click', () => callback()),
