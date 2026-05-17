@@ -12,7 +12,6 @@
     body {
       background: #0a0a0f;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      cursor: crosshair;
     }
     
     .grid {
@@ -22,6 +21,7 @@
       height: 100vh;
       gap: 4px;
       padding: 4px;
+      cursor: crosshair;
     }
     
     .card {
@@ -58,39 +58,78 @@
       border-radius: 6px;
       font-size: 12px;
       z-index: 10;
+      pointer-events: none;
     }
     
-    .card.recording {
-      border: 3px solid #ffaa00;
-      animation: recordPulse 1s infinite;
-    }
-    
-    .card.recording::before {
+    .card.recording::after {
       content: '🎥 CLICK ON MUTE BUTTON';
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(255, 170, 0, 0.9);
+      background: rgba(255, 170, 0, 0.95);
+      color: black;
+      padding: 20px 40px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      z-index: 100;
+      text-align: center;
+      border: 3px solid #ff6b6b;
+      box-shadow: 0 0 30px rgba(255, 170, 0, 0.5);
+    }
+    
+    .card.recording {
+      border: 3px solid #ffaa00;
+      animation: recordPulse 0.5s infinite;
+    }
+    
+    @keyframes recordPulse {
+      0%, 100% { box-shadow: 0 0 10px #ffaa00; }
+      50% { box-shadow: 0 0 30px #ffaa00; }
+    }
+    
+    /* Recording overlay covers the whole screen */
+    #recording-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 999;
+      cursor: crosshair;
+    }
+    
+    #recording-overlay.active {
+      display: block;
+    }
+    
+    #recording-overlay::after {
+      content: '🎥 CLICK ANYWHERE ON THIS SCREEN ON THE MUTE BUTTON';
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 170, 0, 0.95);
       color: black;
       padding: 15px 30px;
       border-radius: 8px;
       font-size: 16px;
       font-weight: bold;
-      z-index: 100;
-    }
-    
-    @keyframes recordPulse {
-      0%, 100% { border-color: #ffaa00; }
-      50% { border-color: #ff6b6b; }
+      white-space: nowrap;
     }
   </style>
 </head>
 <body>
+  <!-- Full-screen recording overlay -->
+  <div id="recording-overlay"></div>
+  
   <div class="grid" id="grid"></div>
   
   <script>
     const grid = document.getElementById('grid');
+    const overlay = document.getElementById('recording-overlay');
     let streams = ['', '', '', ''];
     let focused = 0;
     let fullscreenIndex = null;
@@ -148,9 +187,10 @@
       cards.forEach(card => card.classList.remove('fullscreen', 'collapsed'));
     }
     
-    // Handle clicks - notify main process if recording
-    grid.addEventListener('click', () => {
-      if (isRecordingMode && recordingStreamIndex !== null) {
+    // Recording overlay click handler
+    overlay.addEventListener('click', () => {
+      if (isRecordingMode) {
+        console.log('Recording: User clicked on overlay, notifying main process');
         window.electronAPI.notifyUserClick();
       }
     });
@@ -213,57 +253,54 @@
     
     // Recording mode handlers
     window.electronAPI.onStartRecord((stream) => {
+      console.log('Recording started for stream', stream);
       isRecordingMode = true;
       recordingStreamIndex = stream;
       
-      const card = document.getElementById('card-' + stream);
-      if (card) card.classList.add('recording');
+      // Show full-screen recording overlay
+      overlay.classList.add('active');
       
-      console.log('Recording started for stream', stream);
+      // Hide all cards initially
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => card.style.opacity = '0.3');
     });
     
     window.electronAPI.onStopRecord(() => {
-      if (recordingStreamIndex !== null) {
-        const card = document.getElementById('card-' + recordingStreamIndex);
-        if (card) card.classList.remove('recording');
-      }
+      console.log('Recording stopped');
       isRecordingMode = false;
       recordingStreamIndex = null;
       
-      console.log('Recording stopped');
+      // Hide recording overlay
+      overlay.classList.remove('active');
+      
+      // Restore card opacity
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => card.style.opacity = '1');
     });
     
     window.electronAPI.onMutePositionCaptured((data) => {
-      const card = document.getElementById('card-' + data.stream);
-      if (card) card.classList.remove('recording');
-      
       console.log('Mute position captured:', data);
+      
+      isRecordingMode = false;
+      recordingStreamIndex = null;
+      
+      // Hide recording overlay
+      overlay.classList.remove('active');
+      
+      // Restore card opacity
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(card => card.style.opacity = '1');
     });
     
     // Initial load
     createGrid();
     
-    // Auto-click after 5 seconds
-    setTimeout(() => {
-      const iframes = document.querySelectorAll('iframe');
-      iframes.forEach((iframe) => {
-        try {
-          iframe.contentWindow?.postMessage({ type: 'click', x: 50, y: 50 }, '*');
-        } catch (e) {}
-      });
-    }, 5000);
-    
-    // Keyboard shortcut: Escape to exit fullscreen
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && fullscreenIndex !== null) {
-        exitFullscreen();
-      }
-    });
-    
-    // Click on card to toggle fullscreen
+    // Click on card to toggle fullscreen (only when not recording)
     grid.addEventListener('click', (e) => {
+      if (isRecordingMode) return;
+      
       const card = e.target.closest('.card');
-      if (card && !isRecordingMode) {
+      if (card) {
         const index = parseInt(card.id.split('-')[1]);
         if (fullscreenIndex === index) {
           exitFullscreen();
@@ -275,6 +312,13 @@
             else c.classList.add('collapsed');
           });
         }
+      }
+    });
+    
+    // Keyboard shortcut: Escape to exit fullscreen
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && fullscreenIndex !== null && !isRecordingMode) {
+        exitFullscreen();
       }
     });
   </script>

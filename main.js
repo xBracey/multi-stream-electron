@@ -95,7 +95,11 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'autoplay':
-      clickAllQuadrants(50, 50);
+      if (cmd.stream !== undefined) {
+        clickAllQuadrants(50, 50, parseInt(cmd.stream));
+      } else {
+        clickAllQuadrants(50, 50);
+      }
       break;
 
     case 'fullscreen':
@@ -123,7 +127,6 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'startRecord':
-      // Start recording - move mouse to center of stream's quadrant
       startRecording(cmd.stream);
       break;
 
@@ -132,7 +135,6 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'clickCaptured':
-      // User clicked while recording - capture mouse position
       captureClickPosition();
       break;
 
@@ -145,7 +147,6 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'applyToAllStreams':
-      // Apply same position to all streams
       if (cmd.x !== undefined && cmd.y !== undefined) {
         mutePositions = mutePositions.map(() => ({ x: cmd.x, y: cmd.y }));
         saveMutePositions();
@@ -197,16 +198,20 @@ function startRecording(stream) {
 }
 
 function captureClickPosition() {
-  if (!isRecordingMode || recordStreamIndex === null) return;
+  console.log('Robot: captureClickPosition called', { isRecordingMode, recordStreamIndex });
+  
+  if (!isRecordingMode || recordStreamIndex === null) {
+    console.log('Robot: Not in recording mode, ignoring click');
+    return;
+  }
   if (!mainWindow || mainWindow.isDestroyed()) return;
   
   // Get current mouse position
   const mousePos = robot.getMousePos();
-  const bounds = mainWindow.getBounds();
+  console.log('Robot: Mouse position:', mousePos);
   
-  // Calculate which quadrant the click was in
-  const relX = mousePos.x - bounds.x;
-  const relY = mousePos.y - bounds.y;
+  const bounds = mainWindow.getBounds();
+  console.log('Robot: Window bounds:', bounds);
   
   // Calculate percentage within the stream's quadrant
   const quadrantWidth = bounds.width / 2;
@@ -221,6 +226,8 @@ function captureClickPosition() {
   // Position relative to quadrant
   const relToQuadX = mousePos.x - bounds.x - quadrantLeft;
   const relToQuadY = mousePos.y - bounds.y - quadrantTop;
+  
+  console.log('Robot: Relative to quadrant:', { relToQuadX, relToQuadY, quadrantWidth, quadrantHeight });
   
   // Convert to percentage (0-100)
   const xPercent = Math.round((relToQuadX / quadrantWidth) * 100);
@@ -274,25 +281,28 @@ function clickOnStream(stream, xPercent, yPercent) {
   console.log(`Robot: Muted stream ${stream + 1} at (${xPercent}%, ${yPercent}%)`);
 }
 
-function clickAllQuadrants(xPercent = 50, yPercent = 50) {
+function clickAllQuadrants(xPercent = 50, yPercent = 50, singleStream = null) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   
   const bounds = mainWindow.getBounds();
   const quadrantWidth = bounds.width / 2;
   const quadrantHeight = bounds.height / 2;
   
-  const centers = [
+  const streamsToClick = singleStream !== null ? [singleStream] : [0, 1, 2, 3];
+  
+  const positions = [
     { stream: 0, x: bounds.x + quadrantWidth * 0.5, y: bounds.y + quadrantHeight * 0.5 },
     { stream: 1, x: bounds.x + quadrantWidth * 1.5, y: bounds.y + quadrantHeight * 0.5 },
     { stream: 2, x: bounds.x + quadrantWidth * 0.5, y: bounds.y + quadrantHeight * 1.5 },
     { stream: 3, x: bounds.x + quadrantWidth * 1.5, y: bounds.y + quadrantHeight * 1.5 },
   ];
   
-  centers.forEach((pos, i) => {
+  streamsToClick.forEach((streamIdx, i) => {
+    const pos = positions[streamIdx];
     setTimeout(() => {
       robot.moveMouse(pos.x, pos.y);
       robot.mouseClick();
-      console.log(`Robot: Autoplay clicked stream ${i + 1}`);
+      console.log(`Robot: Autoplay clicked stream ${streamIdx + 1}`);
     }, i * 500);
   });
 }
@@ -370,13 +380,6 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  // Handle click events to capture mute position while recording
-  mainWindow.webContents.on('input-event', (event, params) => {
-    if (isRecordingMode && params.type === 'mouseMoved') {
-      // Could track mouse movement for debugging if needed
-    }
-  });
-
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -395,6 +398,7 @@ ipcMain.on('updateStreams', (_, streams) => {
 
 // Handle user click during recording mode
 ipcMain.on('userClicked', () => {
+  console.log('Robot: userClicked received in main');
   if (isRecordingMode && recordStreamIndex !== null) {
     captureClickPosition();
   }

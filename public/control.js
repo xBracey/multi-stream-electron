@@ -170,6 +170,11 @@ document.getElementById('applyToAllBtn')?.addEventListener('click', () => {
   }
 });
 
+// Autoplay buttons - click center of a specific stream
+document.querySelectorAll('.autoplay-btn').forEach(btn => {
+  btn.onclick = () => send('autoplay', { stream: parseInt(btn.dataset.stream) });
+});
+
 // Play buttons
 document.querySelectorAll('.play-btn').forEach(btn => {
   btn.onclick = () => send('play', { stream: parseInt(btn.dataset.stream) });
