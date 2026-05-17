@@ -214,9 +214,9 @@ document.getElementById('syncFocusBtn')?.addEventListener('click', () => {
   send('syncFocus');
 });
 
-// Apply focus button - actually presses the mute buttons to match current focus state
+// Apply focus button - presses mute buttons based on current focus state
 document.getElementById('applyFocusBtn')?.addEventListener('click', () => {
-  send('audioFocus', { stream: focused });
+  send('applyFocus');
 });
 
 // Add CSS for shake animation

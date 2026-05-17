@@ -15,6 +15,8 @@ let mutePositions = [null, null, null, null];
 let isRecordingMode = false;
 let recordStreamIndex = null;
 let fullscreenStream = null;
+let previousFocus = 0;
+let previousFocus = 0;
 
 const server = http.createServer((req, res) => {
   let filePath;
@@ -198,32 +200,32 @@ function handleCommand(cmd, sender) {
 
     case 'setFocus':
       // Only update internal state, don't press any mute buttons
+      previousFocus = config.focused;
       config.focused = cmd.stream;
       broadcastState();
       console.log(`Robot: Focus set to stream ${cmd.stream + 1} (no mute buttons pressed)`);
       break;
 
-
     case 'syncFocus':
-      // Apply the current focus state to mute buttons
-      const syncFocused = config.focused;
-      console.log(`Robot: Syncing focus. Current focus: Stream ${syncFocused + 1}`);
+      // Just sync the internal state - do NOT press any mute buttons
+      console.log(`Robot: Sync - internal focus is Stream ${config.focused + 1}`);
+      break;
+
+    case 'applyFocus':
+      // Mute the old focus, unmute the new focus
+      const newFocus = config.focused;
       
-      // Click mute button of focused stream to ensure it's unmuted
-      if (mutePositions[syncFocused]) {
-        clickOnStream(syncFocused, mutePositions[syncFocused].x, mutePositions[syncFocused].y);
+      // Mute the previously focused stream (if different)
+      if (previousFocus !== newFocus && mutePositions[previousFocus]) {
+        clickOnStream(previousFocus, mutePositions[previousFocus].x, mutePositions[previousFocus].y);
       }
       
-      // Mute all other streams
-      let syncDelay = 250;
-      mutePositions.forEach((pos, i) => {
-        if (pos && i !== syncFocused) {
-          setTimeout(() => clickOnStream(i, pos.x, pos.y), syncDelay);
-          syncDelay += 250;
-        }
-      });
+      // Unmute the newly focused stream
+      if (mutePositions[newFocus]) {
+        clickOnStream(newFocus, mutePositions[newFocus].x, mutePositions[newFocus].y);
+      }
       
-      console.log(`Robot: Sync complete. Stream ${syncFocused + 1} unmuted, others muted.`);
+      console.log(`Robot: Applied focus - Stream ${previousFocus + 1} muted, Stream ${newFocus + 1} unmuted`);
       break;
 
     case 'config':
