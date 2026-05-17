@@ -59,15 +59,35 @@
     </div>
     
     <div class="section">
-      <h2>🔇 Mute/Unmute</h2>
-      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Click bottom-right corner to mute</p>
+      <h2>🖱️ Autoplay</h2>
+      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Click center of all streams</p>
+      <button class="btn btn-primary btn-wide" id="autoplayBtn">▶ Enable Autoplay</button>
+    </div>
+    
+    <div class="section recording-section">
+      <h2>🎯 Record Mute Position</h2>
+      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">
+        Click "Record" then click on the mute button in the stream.
+      </p>
+      <div class="grid-4">
+        <button class="btn record-btn" data-stream="0">🎥 S1</button>
+        <button class="btn record-btn" data-stream="1">🎥 S2</button>
+        <button class="btn record-btn" data-stream="2">🎥 S3</button>
+        <button class="btn record-btn" data-stream="3">🎥 S4</button>
+      </div>
+      <button class="btn btn-outline btn-wide" id="applyToAllBtn">📋 Apply to All Streams</button>
+    </div>
+    
+    <div class="section">
+      <h2>🔇 Mute (RobotJS)</h2>
+      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Robot clicks the saved mute position</p>
       <div class="grid-4">
         <button class="btn mute-btn" data-stream="0">M1</button>
         <button class="btn mute-btn" data-stream="1">M2</button>
         <button class="btn mute-btn" data-stream="2">M3</button>
         <button class="btn mute-btn" data-stream="3">M4</button>
       </div>
-      <button class="btn btn-outline btn-wide" id="enableAutoplayBtn">🖱️ Enable Autoplay</button>
+      <button class="btn btn-wide" id="muteAllBtn">🔇 Mute All Except Focus</button>
     </div>
     
     <div class="section">

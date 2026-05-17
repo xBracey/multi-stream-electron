@@ -12,7 +12,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onPause: (callback) => ipcRenderer.on('pause', (_, stream) => callback(stream)),
   onClick: (callback) => ipcRenderer.on('click', () => callback()),
   onClickPosition: (callback) => ipcRenderer.on('clickPosition', (_, data) => callback(data)),
+  onStartRecord: (callback) => ipcRenderer.on('startRecord', (_, stream) => callback(stream)),
+  onStopRecord: (callback) => ipcRenderer.on('stopRecord', () => callback()),
+  onMutePositionCaptured: (callback) => ipcRenderer.on('mutePositionCaptured', (_, data) => callback(data)),
   
-  // Get initial config
+  // Notify main process that user clicked (for recording mode)
+  notifyUserClick: () => ipcRenderer.send('userClicked'),
+  
+  // Get initial config including mute positions
   getConfig: () => ipcRenderer.invoke('getConfig')
 });

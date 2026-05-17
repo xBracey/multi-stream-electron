@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const WebSocket = require('ws');
+const robot = require('robotjs');
 
 let mainWindow;
 let config = {
@@ -10,7 +11,10 @@ let config = {
   focused: 0
 };
 
-// HTTP server to serve control UI
+let mutePositions = [null, null, null, null];
+let isRecordingMode = false;
+let recordStreamIndex = null;
+
 const server = http.createServer((req, res) => {
   let filePath;
   let contentType = 'text/html';
@@ -42,17 +46,18 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// WebSocket server for real-time commands
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
   
-  // Send current state on connect
   ws.send(JSON.stringify({
     type: 'state',
     streams: config.streams,
-    focused: config.focused
+    focused: config.focused,
+    mutePositions: mutePositions,
+    isRecording: isRecordingMode,
+    recordStreamIndex: recordStreamIndex
   }));
 
   ws.on('message', (message) => {
@@ -73,7 +78,7 @@ function handleCommand(cmd, sender) {
   switch (cmd.type) {
     case 'focus':
       config.focused = cmd.stream;
-      broadcast({ type: 'state', streams: config.streams, focused: config.focused });
+      broadcastState();
       mainWindow?.webContents.send('focus', cmd.stream);
       break;
 
@@ -89,45 +94,234 @@ function handleCommand(cmd, sender) {
       mainWindow?.webContents.send('exitfullscreen');
       break;
 
-    case 'click':
-      mainWindow?.webContents.send('click');
-      break;
-
-    case 'clickPosition':
-      mainWindow?.webContents.send('clickPosition', { stream: cmd.stream, x: cmd.x, y: cmd.y });
-      break;
-
-    case 'pause':
-      mainWindow?.webContents.send('pause', cmd.stream === 'all' ? 'all' : parseInt(cmd.stream));
+    case 'autoplay':
+      clickAllQuadrants(50, 50);
       break;
 
     case 'fullscreen':
       config.focused = cmd.stream;
-      broadcast({ type: 'state', streams: config.streams, focused: config.focused });
+      broadcastState();
       mainWindow?.webContents.send('fullscreen', parseInt(cmd.stream));
+      break;
+
+    case 'fullscreenall':
+      clickAllQuadrants(50, 50);
+      break;
+
+    case 'mute':
+      if (cmd.stream !== undefined && mutePositions[cmd.stream]) {
+        clickOnStream(cmd.stream, mutePositions[cmd.stream].x, mutePositions[cmd.stream].y);
+      }
+      break;
+
+    case 'muteall':
+      mutePositions.forEach((pos, i) => {
+        if (pos && i !== config.focused) {
+          clickOnStream(i, pos.x, pos.y);
+        }
+      });
+      break;
+
+    case 'startRecord':
+      // Start recording - move mouse to center of stream's quadrant
+      startRecording(cmd.stream);
+      break;
+
+    case 'stopRecord':
+      stopRecording();
+      break;
+
+    case 'clickCaptured':
+      // User clicked while recording - capture mouse position
+      captureClickPosition();
+      break;
+
+    case 'setmutePosition':
+      if (cmd.stream !== undefined && cmd.x !== undefined && cmd.y !== undefined) {
+        mutePositions[cmd.stream] = { x: cmd.x, y: cmd.y };
+        saveMutePositions();
+        broadcastState();
+      }
+      break;
+
+    case 'applyToAllStreams':
+      // Apply same position to all streams
+      if (cmd.x !== undefined && cmd.y !== undefined) {
+        mutePositions = mutePositions.map(() => ({ x: cmd.x, y: cmd.y }));
+        saveMutePositions();
+        broadcastState();
+      }
       break;
 
     case 'config':
       if (cmd.action === 'get') {
         sender.send(JSON.stringify({
           type: 'config',
-          streams: config.streams
+          streams: config.streams,
+          mutePositions: mutePositions
         }));
       } else if (cmd.action === 'set') {
         config.streams = cmd.streams;
         saveConfig();
-        broadcast({ type: 'state', streams: config.streams, focused: config.focused });
+        broadcastState();
         mainWindow?.webContents.send('config', config.streams);
       }
       break;
   }
 }
 
-function broadcast(message) {
-  const data = JSON.stringify(message);
+function startRecording(stream) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  isRecordingMode = true;
+  recordStreamIndex = stream;
+  
+  // Move mouse to center of the stream's quadrant
+  const bounds = mainWindow.getBounds();
+  const quadrantWidth = bounds.width / 2;
+  const quadrantHeight = bounds.height / 2;
+  
+  const quadrantX = stream % 2;
+  const quadrantY = Math.floor(stream / 2);
+  
+  const centerX = bounds.x + (quadrantX * quadrantWidth) + (quadrantWidth * 0.5);
+  const centerY = bounds.y + (quadrantY * quadrantHeight) + (quadrantHeight * 0.5);
+  
+  robot.moveMouse(centerX, centerY);
+  
+  // Notify renderer to show recording UI
+  mainWindow?.webContents.send('startRecord', stream);
+  broadcastState();
+  
+  console.log(`Robot: Recording started for stream ${stream + 1}. Click on TV at mute button position.`);
+}
+
+function captureClickPosition() {
+  if (!isRecordingMode || recordStreamIndex === null) return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  // Get current mouse position
+  const mousePos = robot.getMousePos();
+  const bounds = mainWindow.getBounds();
+  
+  // Calculate which quadrant the click was in
+  const relX = mousePos.x - bounds.x;
+  const relY = mousePos.y - bounds.y;
+  
+  // Calculate percentage within the stream's quadrant
+  const quadrantWidth = bounds.width / 2;
+  const quadrantHeight = bounds.height / 2;
+  
+  const quadX = recordStreamIndex % 2;
+  const quadY = Math.floor(recordStreamIndex / 2);
+  
+  const quadrantLeft = quadX * quadrantWidth;
+  const quadrantTop = quadY * quadrantHeight;
+  
+  // Position relative to quadrant
+  const relToQuadX = mousePos.x - bounds.x - quadrantLeft;
+  const relToQuadY = mousePos.y - bounds.y - quadrantTop;
+  
+  // Convert to percentage (0-100)
+  const xPercent = Math.round((relToQuadX / quadrantWidth) * 100);
+  const yPercent = Math.round((relToQuadY / quadrantHeight) * 100);
+  
+  // Clamp to 0-100
+  const x = Math.max(0, Math.min(100, xPercent));
+  const y = Math.max(0, Math.min(100, yPercent));
+  
+  // Save position
+  const capturedStream = recordStreamIndex;
+  mutePositions[capturedStream] = { x, y };
+  saveMutePositions();
+  
+  // Clean up
+  isRecordingMode = false;
+  const savedX = x, savedY = y;
+  recordStreamIndex = null;
+  
+  // Notify
+  mainWindow?.webContents.send('mutePositionCaptured', { stream: capturedStream, x: savedX, y: savedY });
+  broadcastState();
+  
+  console.log(`Robot: Mute position captured for stream ${capturedStream + 1}: (${savedX}%, ${savedY}%) at screen (${mousePos.x}, ${mousePos.y})`);
+}
+
+function stopRecording() {
+  isRecordingMode = false;
+  recordStreamIndex = null;
+  mainWindow?.webContents.send('stopRecord');
+  broadcastState();
+  console.log('Robot: Recording stopped');
+}
+
+function clickOnStream(stream, xPercent, yPercent) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  const bounds = mainWindow.getBounds();
+  const quadrantWidth = bounds.width / 2;
+  const quadrantHeight = bounds.height / 2;
+  
+  const quadrantX = stream % 2;
+  const quadrantY = Math.floor(stream / 2);
+  
+  const targetX = bounds.x + (quadrantX * quadrantWidth) + (quadrantWidth * xPercent / 100);
+  const targetY = bounds.y + (quadrantY * quadrantHeight) + (quadrantHeight * yPercent / 100);
+  
+  robot.moveMouse(targetX, targetY);
+  robot.mouseClick();
+  
+  console.log(`Robot: Muted stream ${stream + 1} at (${xPercent}%, ${yPercent}%)`);
+}
+
+function clickAllQuadrants(xPercent = 50, yPercent = 50) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  const bounds = mainWindow.getBounds();
+  const quadrantWidth = bounds.width / 2;
+  const quadrantHeight = bounds.height / 2;
+  
+  const centers = [
+    { stream: 0, x: bounds.x + quadrantWidth * 0.5, y: bounds.y + quadrantHeight * 0.5 },
+    { stream: 1, x: bounds.x + quadrantWidth * 1.5, y: bounds.y + quadrantHeight * 0.5 },
+    { stream: 2, x: bounds.x + quadrantWidth * 0.5, y: bounds.y + quadrantHeight * 1.5 },
+    { stream: 3, x: bounds.x + quadrantWidth * 1.5, y: bounds.y + quadrantHeight * 1.5 },
+  ];
+  
+  centers.forEach((pos, i) => {
+    setTimeout(() => {
+      robot.moveMouse(pos.x, pos.y);
+      robot.mouseClick();
+      console.log(`Robot: Autoplay clicked stream ${i + 1}`);
+    }, i * 500);
+  });
+}
+
+function startAutoClick() {
+  setTimeout(() => {
+    console.log('Robot: Initial autoplay click');
+    clickAllQuadrants();
+  }, 5000);
+  
+  setInterval(() => {
+    console.log('Robot: Scheduled autoplay click');
+    clickAllQuadrants();
+  }, 30000);
+}
+
+function broadcastState() {
+  const message = JSON.stringify({
+    type: 'state',
+    streams: config.streams,
+    focused: config.focused,
+    mutePositions: mutePositions,
+    isRecording: isRecordingMode,
+    recordStreamIndex: recordStreamIndex
+  });
+  
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
+      client.send(message);
     }
   });
 }
@@ -136,17 +330,26 @@ function loadConfig() {
   const configPath = path.join(__dirname, 'config.json');
   try {
     if (fs.existsSync(configPath)) {
-      const data = fs.readFileSync(configPath, 'utf8');
-      config = { ...config, ...JSON.parse(data) };
+      config = { ...config, ...JSON.parse(fs.readFileSync(configPath, 'utf8')) };
     }
-  } catch (e) {
-    console.log('No saved config, using defaults');
-  }
+  } catch (e) {}
 }
 
 function saveConfig() {
-  const configPath = path.join(__dirname, 'config.json');
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 2));
+}
+
+function loadMutePositions() {
+  const mutePath = path.join(__dirname, 'mute-positions.json');
+  try {
+    if (fs.existsSync(mutePath)) {
+      mutePositions = JSON.parse(fs.readFileSync(mutePath, 'utf8'));
+    }
+  } catch (e) {}
+}
+
+function saveMutePositions() {
+  fs.writeFileSync(path.join(__dirname, 'mute-positions.json'), JSON.stringify(mutePositions, null, 2));
 }
 
 function createWindow() {
@@ -157,42 +360,49 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webviewTag: false // Disable webview tag for security
+      webviewTag: false
     }
   });
 
-  // Block popups and new windows
   mainWindow.webContents.setWindowOpenHandler(() => {
     return { action: 'deny' };
-  });
-  
-  // Block popup windows
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    // Prevent navigation to new URLs (popup redirects)
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  // Open DevTools in dev mode
-  if (process.argv.includes('--dev')) {
-    mainWindow.webContents.openDevTools();
-  }
+  // Handle click events to capture mute position while recording
+  mainWindow.webContents.on('input-event', (event, params) => {
+    if (isRecordingMode && params.type === 'mouseMoved') {
+      // Could track mouse movement for debugging if needed
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    startAutoClick();
+  });
 }
 
-// Get initial config via IPC
-ipcMain.handle('getConfig', () => config);
+ipcMain.handle('getConfig', () => ({ ...config, mutePositions }));
 
-// Handle config updates from renderer
 ipcMain.on('updateStreams', (_, streams) => {
   config.streams = streams;
   saveConfig();
 });
+
+// Handle user click during recording mode
+ipcMain.on('userClicked', () => {
+  if (isRecordingMode && recordStreamIndex !== null) {
+    captureClickPosition();
+  }
+});
+
 function getLocalIP() {
-  const interfaces = require('os').networkInterfaces();
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
@@ -205,8 +415,8 @@ function getLocalIP() {
 
 app.whenReady().then(() => {
   loadConfig();
+  loadMutePositions();
 
-  // Start HTTP/WS server
   const PORT = 8765;
   server.listen(PORT, '0.0.0.0', () => {
     const ip = getLocalIP();
@@ -216,6 +426,13 @@ app.whenReady().then(() => {
     console.log(`📺 Display: Fullscreen on local monitor`);
     console.log(`📱 Control: http://${ip}:${PORT}`);
     console.log(`⚙️  Config:  http://${ip}:${PORT}/config`);
+    console.log('🤖 Robot auto-click enabled (clicks center every 30s)');
+    
+    const savedMutes = mutePositions.filter(p => p).length;
+    if (savedMutes > 0) {
+      console.log(`🔇 Mute positions saved for ${savedMutes} streams`);
+    }
+    
     console.log('═══════════════════════════════════════════════════════════');
   });
 

@@ -12,6 +12,7 @@
     body {
       background: #0a0a0f;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: crosshair;
     }
     
     .grid {
@@ -58,6 +59,31 @@
       font-size: 12px;
       z-index: 10;
     }
+    
+    .card.recording {
+      border: 3px solid #ffaa00;
+      animation: recordPulse 1s infinite;
+    }
+    
+    .card.recording::before {
+      content: '🎥 CLICK ON MUTE BUTTON';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 170, 0, 0.9);
+      color: black;
+      padding: 15px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      z-index: 100;
+    }
+    
+    @keyframes recordPulse {
+      0%, 100% { border-color: #ffaa00; }
+      50% { border-color: #ff6b6b; }
+    }
   </style>
 </head>
 <body>
@@ -66,11 +92,11 @@
   <script>
     const grid = document.getElementById('grid');
     let streams = ['', '', '', ''];
-    let mutePositions = [null, null, null, null];
     let focused = 0;
     let fullscreenIndex = null;
+    let isRecordingMode = false;
+    let recordingStreamIndex = null;
     
-    // Load streams from localStorage
     function loadFromStorage() {
       const saved = localStorage.getItem('multiStreamStreams');
       if (saved) {
@@ -83,29 +109,12 @@
       }
     }
     
-    // Save streams to localStorage
     function saveToStorage() {
       localStorage.setItem('multiStreamStreams', JSON.stringify(streams));
     }
     
-    // Load mute positions from localStorage
-    function loadMutePositions() {
-      const saved = localStorage.getItem('mutePositions');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length === 4) {
-            mutePositions = parsed;
-          }
-        } catch (e) {}
-      }
-    }
-    
-    // Load on startup
     loadFromStorage();
-    loadMutePositions();
     
-    // Create video cards
     function createGrid() {
       grid.innerHTML = '';
       
@@ -122,12 +131,10 @@
         if (url) {
           const iframe = document.createElement('iframe');
           iframe.id = 'iframe-' + i;
-          iframe.src = url + (url.includes('?') ? '&' : '?') + 'autoplay=1&allow=autoplay';
+          iframe.src = url;
           iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-forms allow-scripts');
-          iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+          iframe.setAttribute('allow', 'autoplay; fullscreen');
           iframe.setAttribute('allowfullscreen', 'true');
-          iframe.setAttribute('webkitallowfullscreen', 'true');
-          iframe.setAttribute('mozallowfullscreen', 'true');
           card.appendChild(iframe);
         }
         
@@ -135,92 +142,43 @@
       });
     }
     
-    // Update which iframe is unmuted
-    function updateAudio() {
-      const iframes = document.querySelectorAll('iframe');
-      iframes.forEach((iframe, i) => {
-        if (iframe.contentWindow) {
-          if (i === focused) {
-            iframe.contentWindow.postMessage({ type: 'audio', action: 'unmute' }, '*');
-          } else {
-            iframe.contentWindow.postMessage({ type: 'audio', action: 'mute' }, '*');
-          }
-        }
-      });
-    }
-    
-    // Fullscreen functions
-    function enterFullscreen(index) {
-      const cards = document.querySelectorAll('.card');
-      fullscreenIndex = index;
-      
-      cards.forEach((card, i) => {
-        if (i === index) {
-          card.classList.add('fullscreen');
-        } else {
-          card.classList.add('collapsed');
-        }
-      });
-    }
-    
     function exitFullscreen() {
       const cards = document.querySelectorAll('.card');
       fullscreenIndex = null;
-      
-      cards.forEach(card => {
-        card.classList.remove('fullscreen', 'collapsed');
-      });
+      cards.forEach(card => card.classList.remove('fullscreen', 'collapsed'));
     }
     
-    // Click at specific position in iframe
-    function clickAtPosition(streamIndex, x, y) {
-      const iframe = document.getElementById('iframe-' + streamIndex);
-      if (iframe) {
-        try {
-          iframe.contentWindow?.postMessage({ type: 'click', x, y }, '*');
-          console.log(`Clicked at (${x}, ${y}) in stream ${streamIndex}`);
-        } catch (e) {
-          console.log('Could not click in stream', streamIndex, '- cross-origin');
-        }
+    // Handle clicks - notify main process if recording
+    grid.addEventListener('click', () => {
+      if (isRecordingMode && recordingStreamIndex !== null) {
+        window.electronAPI.notifyUserClick();
       }
-    }
-    
-    // Simulate clicks to center
-    function simulateCenterClicks() {
-      const iframes = document.querySelectorAll('iframe');
-      iframes.forEach((iframe) => {
-        try {
-          iframe.contentWindow?.postMessage({ type: 'click', x: 'center', y: 'center' }, '*');
-        } catch (e) {}
-      });
-    }
+    });
     
     // Listen for commands from main process via IPC
     window.electronAPI.onFocus((stream) => {
       focused = stream;
-      updateAudio();
     });
     
     window.electronAPI.onRefresh((stream) => {
       if (stream === 'all') {
         streams.forEach((url, i) => {
           const iframe = document.getElementById('iframe-' + i);
-          if (iframe) {
-            iframe.src = url;
-          }
+          if (iframe && url) iframe.src = url;
         });
       } else {
         const iframe = document.getElementById('iframe-' + stream);
-        if (iframe) {
-          iframe.src = streams[stream];
-        }
+        if (iframe && streams[stream]) iframe.src = streams[stream];
       }
     });
     
     window.electronAPI.onFullscreen((stream) => {
-      focused = stream;
-      enterFullscreen(stream);
-      updateAudio();
+      const cards = document.querySelectorAll('.card');
+      fullscreenIndex = stream;
+      cards.forEach((card, i) => {
+        if (i === stream) card.classList.add('fullscreen');
+        else card.classList.add('collapsed');
+      });
     });
     
     window.electronAPI.onExitFullscreen(() => {
@@ -232,63 +190,67 @@
         streams = newStreams;
         saveToStorage();
         createGrid();
-        if (streams[0]) {
-          focused = 0;
-        }
-        updateAudio();
-      }
-    });
-    
-    window.electronAPI.onPlay((stream) => {
-      const iframes = document.querySelectorAll('iframe');
-      if (stream === 'all') {
-        iframes.forEach((iframe) => {
-          iframe.contentWindow?.postMessage({ type: 'play' }, '*');
-        });
-      } else {
-        const iframe = iframes[stream];
-        if (iframe) {
-          iframe.contentWindow?.postMessage({ type: 'play' }, '*');
-        }
-      }
-    });
-    
-    window.electronAPI.onPause((stream) => {
-      const iframes = document.querySelectorAll('iframe');
-      if (stream === 'all') {
-        iframes.forEach((iframe) => {
-          iframe.contentWindow?.postMessage({ type: 'pause' }, '*');
-        });
-      } else {
-        const iframe = iframes[stream];
-        if (iframe) {
-          iframe.contentWindow?.postMessage({ type: 'pause' }, '*');
-        }
       }
     });
     
     window.electronAPI.onClick(() => {
-      simulateCenterClicks();
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach((iframe) => {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'click', x: 50, y: 50 }, '*');
+        } catch (e) {}
+      });
     });
     
     window.electronAPI.onClickPosition((data) => {
-      clickAtPosition(data.stream, data.x, data.y);
-    });
-    
-    // Initial load - use localStorage
-    createGrid();
-    
-    // Block popups from iframes
-    document.addEventListener('click', (e) => {
-      if (e.target.closest('iframe')) {
-        e.preventDefault();
-        e.stopPropagation();
+      const iframe = document.getElementById('iframe-' + data.stream);
+      if (iframe) {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'click', x: data.x, y: data.y }, '*');
+        } catch (e) {}
       }
     });
     
-    // Simulate click inside iframes after 5 seconds to enable autoplay
+    // Recording mode handlers
+    window.electronAPI.onStartRecord((stream) => {
+      isRecordingMode = true;
+      recordingStreamIndex = stream;
+      
+      const card = document.getElementById('card-' + stream);
+      if (card) card.classList.add('recording');
+      
+      console.log('Recording started for stream', stream);
+    });
+    
+    window.electronAPI.onStopRecord(() => {
+      if (recordingStreamIndex !== null) {
+        const card = document.getElementById('card-' + recordingStreamIndex);
+        if (card) card.classList.remove('recording');
+      }
+      isRecordingMode = false;
+      recordingStreamIndex = null;
+      
+      console.log('Recording stopped');
+    });
+    
+    window.electronAPI.onMutePositionCaptured((data) => {
+      const card = document.getElementById('card-' + data.stream);
+      if (card) card.classList.remove('recording');
+      
+      console.log('Mute position captured:', data);
+    });
+    
+    // Initial load
+    createGrid();
+    
+    // Auto-click after 5 seconds
     setTimeout(() => {
-      simulateCenterClicks();
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach((iframe) => {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'click', x: 50, y: 50 }, '*');
+        } catch (e) {}
+      });
     }, 5000);
     
     // Keyboard shortcut: Escape to exit fullscreen
@@ -301,12 +263,17 @@
     // Click on card to toggle fullscreen
     grid.addEventListener('click', (e) => {
       const card = e.target.closest('.card');
-      if (card) {
+      if (card && !isRecordingMode) {
         const index = parseInt(card.id.split('-')[1]);
         if (fullscreenIndex === index) {
           exitFullscreen();
         } else if (fullscreenIndex === null) {
-          enterFullscreen(index);
+          const cards = document.querySelectorAll('.card');
+          fullscreenIndex = index;
+          cards.forEach((c, i) => {
+            if (i === index) c.classList.add('fullscreen');
+            else c.classList.add('collapsed');
+          });
         }
       }
     });
