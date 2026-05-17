@@ -37,16 +37,16 @@ ws.onmessage = (event) => {
   if (data.type === 'state') {
     // Update focus buttons
     document.querySelectorAll('.focus-btn').forEach(btn => {
-      const stream = parseInt(btn.dataset.stream);
-      btn.classList.toggle('active', stream === data.focused);
+      const stream = parseInt(btn.closest('.stream-section').dataset.stream);
+      btn.classList.toggle('focus-active', stream === data.focused);
     });
     
     focused = data.focused;
     
-    // Store mute positions
+    // Store mute positions and update UI
     if (data.mutePositions) {
       mutePositions = data.mutePositions;
-      updateMuteIndicators();
+      updateMuteUI();
     }
     
     // Update recording state
@@ -61,11 +61,6 @@ ws.onmessage = (event) => {
     statusEl.textContent = `🎥 Move mouse to mute button and click on TV!`;
     statusEl.className = 'status recording';
   }
-  
-  if (data.type === 'mutePosition') {
-    mutePositions = data.mutePositions;
-    updateMuteIndicators();
-  }
 };
 
 function send(type, data = {}) {
@@ -74,98 +69,97 @@ function send(type, data = {}) {
   }
 }
 
-function updateMuteIndicators() {
-  document.querySelectorAll('.record-btn').forEach(btn => {
-    const stream = parseInt(btn.dataset.stream);
+function updateMuteUI() {
+  document.querySelectorAll('.stream-section').forEach(section => {
+    const stream = parseInt(section.dataset.stream);
+    const statusSpan = section.querySelector('.mute-status');
+    const muteBtn = section.querySelector('.mute-btn');
+    const recordBtn = document.querySelector(`.record-btn[data-stream="${stream}"]`);
+    
     if (mutePositions[stream]) {
-      btn.classList.add('saved');
-      btn.textContent = `✓ S${stream + 1}`;
+      if (statusSpan) statusSpan.textContent = `${mutePositions[stream].x}%, ${mutePositions[stream].y}%`;
+      if (muteBtn) muteBtn.classList.add('ready');
+      if (recordBtn) recordBtn.classList.add('saved');
     } else {
-      btn.classList.remove('saved');
-      btn.textContent = `🎥 S${stream + 1}`;
+      if (statusSpan) statusSpan.textContent = '-';
+      if (muteBtn) muteBtn.classList.remove('ready');
+      if (recordBtn) recordBtn.classList.remove('saved');
     }
-  });
-  
-  document.querySelectorAll('.mute-btn').forEach(btn => {
-    const stream = parseInt(btn.dataset.stream);
-    btn.classList.toggle('ready', !!mutePositions[stream]);
   });
 }
 
 function updateRecordingUI() {
-  const section = document.querySelector('.recording-section');
+  document.querySelectorAll('.record-btn').forEach(btn => {
+    const stream = parseInt(btn.dataset.stream);
+    btn.classList.toggle('recording', stream === recordStreamIndex && isRecording);
+    btn.disabled = isRecording && stream !== recordStreamIndex;
+  });
   
   if (isRecording && recordStreamIndex !== null) {
-    section.classList.add('recording');
-    statusEl.textContent = `🎥 Recording... Click on mute button in Stream ${recordStreamIndex + 1} on TV!`;
+    statusEl.textContent = `🎥 Recording... Click mute button on Stream ${recordStreamIndex + 1}`;
     statusEl.className = 'status recording';
-    
-    document.querySelectorAll('.record-btn').forEach(btn => {
-      btn.disabled = parseInt(btn.dataset.stream) !== recordStreamIndex;
-    });
-  } else {
-    section.classList.remove('recording');
-    document.querySelectorAll('.record-btn').forEach(btn => {
-      btn.disabled = false;
-    });
   }
 }
 
-// Audio Focus buttons - robot clicks center, mutes others
-document.querySelectorAll('.focus-btn').forEach(btn => {
-  btn.onclick = () => {
-    const stream = parseInt(btn.dataset.stream);
-    // Send command: robot clicks center of this stream, mutes all others
+// Stream-specific buttons
+document.querySelectorAll('.stream-section').forEach(section => {
+  const stream = parseInt(section.dataset.stream);
+  
+  section.querySelector('.play-btn')?.addEventListener('click', () => {
+    send('autoplay', { stream });
+  });
+  
+  section.querySelector('.refresh-btn')?.addEventListener('click', () => {
+    send('refresh', { stream });
+  });
+  
+  section.querySelector('.focus-btn')?.addEventListener('click', () => {
     send('audioFocus', { stream });
-  };
+  });
+  
+  section.querySelector('.fullscreen-btn')?.addEventListener('click', () => {
+    send('fullscreen', { stream });
+  });
+  
+  section.querySelector('.mute-btn')?.addEventListener('click', () => {
+    if (mutePositions[stream]) {
+      send('mute', { stream });
+    } else {
+      // Shake animation
+      const btn = section.querySelector('.mute-btn');
+      btn.style.animation = 'shake 0.3s';
+      setTimeout(() => btn.style.animation = '', 300);
+    }
+  });
 });
 
-// Autoplay all button - robot clicks center of all streams
-document.getElementById('autoplayAllBtn')?.addEventListener('click', () => {
+// Center section buttons
+document.getElementById('playAllBtn')?.addEventListener('click', () => {
   send('autoplay');
 });
 
-// Refresh buttons
-document.querySelectorAll('.refresh-btn').forEach(btn => {
-  btn.onclick = () => {
-    const stream = parseInt(btn.dataset.stream);
-    send('refresh', { stream });
-  };
-});
-
-document.getElementById('refreshAll')?.addEventListener('click', () => {
+document.getElementById('refreshAllBtn')?.addEventListener('click', () => {
   send('refresh', { stream: 'all' });
 });
 
-// Playback buttons - robot clicks center of specific stream
-document.querySelectorAll('.play-btn').forEach(btn => {
-  btn.onclick = () => {
-    const stream = parseInt(btn.dataset.stream);
-    send('autoplay', { stream });
-  };
+document.getElementById('muteAllBtn')?.addEventListener('click', () => {
+  send('muteall');
 });
 
-// Fullscreen buttons
-document.querySelectorAll('.fullscreen-btn').forEach(btn => {
-  btn.onclick = () => {
-    const stream = parseInt(btn.dataset.stream);
-    send('fullscreen', { stream });
-  };
-});
-
+// Exit fullscreen
 document.getElementById('exitFullscreenBtn')?.addEventListener('click', () => {
   send('exitfullscreen');
 });
 
-// Record buttons - start recording mode for a specific stream
+// Record buttons
 document.querySelectorAll('.record-btn').forEach(btn => {
-  btn.onclick = () => {
+  btn.addEventListener('click', () => {
     const stream = parseInt(btn.dataset.stream);
     send('startRecord', { stream });
-  };
+  });
 });
 
-// Apply to all button
+// Apply to all / Reset
 document.getElementById('applyToAllBtn')?.addEventListener('click', () => {
   const firstSaved = mutePositions.find(p => p);
   if (firstSaved) {
@@ -175,52 +169,30 @@ document.getElementById('applyToAllBtn')?.addEventListener('click', () => {
   }
 });
 
-// Reset all mute positions button
 document.getElementById('resetMuteBtn')?.addEventListener('click', () => {
   if (confirm('Reset all mute button positions?')) {
     mutePositions = [null, null, null, null];
     send('resetmutePosition');
-    updateMuteIndicators();
+    updateMuteUI();
   }
 });
 
-// Mute buttons
-document.querySelectorAll('.mute-btn').forEach(btn => {
-  btn.onclick = () => {
-    const stream = parseInt(btn.dataset.stream);
-    if (mutePositions[stream]) {
-      send('mute', { stream });
-    } else {
-      btn.style.animation = 'shake 0.5s';
-      setTimeout(() => btn.style.animation = '', 500);
-    }
-  };
-});
-
-// Mute all except focused
-document.getElementById('muteAllBtn')?.addEventListener('click', () => {
-  send('muteall');
-});
-
-// Add CSS
+// Add CSS for shake animation
 const style = document.createElement('style');
 style.textContent = `
-  .recording-section { border: 2px solid #ffaa00; }
-  .recording-section.recording { animation: pulse 1s infinite; }
-  .recording { background: #3d3d0f; }
-  @keyframes pulse {
-    0%, 100% { border-color: #ffaa00; }
-    50% { border-color: #ff6b6b; }
-  }
-  .status.recording { background: #3d3d0f; color: #ffaa00; }
-  .record-btn.saved { background: #4ecca3; color: #0a0a0f; }
-  .mute-btn.ready { background: #4ecca3; color: #0a0a0f; }
-  .record-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-5px); }
     75% { transform: translateX(5px); }
   }
-  .focus-btn.active { background: #4ecca3 !important; color: #0a0a0f !important; }
+  .btn.recording {
+    background: #ffaa00 !important;
+    color: #0a0a0f !important;
+    animation: pulse 0.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
 `;
 document.head.appendChild(style);

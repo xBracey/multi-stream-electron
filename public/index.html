@@ -5,96 +5,265 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Multi-Stream Control</title>
   <link rel="stylesheet" href="/styles.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+    }
+    
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-rows: 1fr auto;
+      height: 100vh;
+      gap: 8px;
+      padding: 8px;
+    }
+    
+    .stream-section {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    
+    .stream-section h3 {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    
+    .stream-section .label {
+      font-size: 11px;
+      color: #666;
+    }
+    
+    .stream-section button {
+      width: 80px;
+      height: 40px;
+    }
+    
+    .stream-section .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .center-section {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    
+    .center-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .center-group h4 {
+      font-size: 12px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .center-group .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn {
+      background: #2a2a4e;
+      color: #e0e0e0;
+      border: 1px solid #3a3a5e;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn:hover {
+      background: #3a3a6e;
+      border-color: #5a5a8e;
+    }
+    
+    .btn:active {
+      transform: scale(0.98);
+    }
+    
+    .btn.active {
+      background: #4ecca3;
+      color: #0a0a0f;
+      border-color: #4ecca3;
+    }
+    
+    .btn.focus-active {
+      background: #4ecca3;
+      color: #0a0a0f;
+      border-color: #4ecca3;
+    }
+    
+    .btn.saved {
+      background: #4ecca3;
+      color: #0a0a0f;
+      border-color: #4ecca3;
+    }
+    
+    .btn.ready {
+      background: #4ecca3;
+      color: #0a0a0f;
+      border-color: #4ecca3;
+    }
+    
+    .status {
+      position: fixed;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 12px;
+      background: #2a2a4e;
+      color: #888;
+    }
+    
+    .status.connected { color: #4ecca3; }
+    .status.disconnected { color: #ff6b6b; }
+    .status.recording { color: #ffaa00; background: #3d3d0f; }
+    
+    .configure-link {
+      color: #4ecca3;
+      text-decoration: none;
+      padding: 10px 16px;
+      border: 1px solid #4ecca3;
+      border-radius: 8px;
+    }
+    
+    .configure-link:hover {
+      background: #4ecca3;
+      color: #0a0a0f;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎮 Multi-Stream Control</h1>
     
-    <div class="status" id="status">Connecting...</div>
-    
-    <div class="section">
-      <h2>🎯 Audio Focus</h2>
-      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">
-        Click to focus. Robot clicks center of stream & mutes others.
-      </p>
-      <div class="grid-4">
-        <button class="btn focus-btn" data-stream="0">▶ S1</button>
-        <button class="btn focus-btn" data-stream="1">▶ S2</button>
-        <button class="btn focus-btn" data-stream="2">▶ S3</button>
-        <button class="btn focus-btn" data-stream="3">▶ S4</button>
-      </div>
-      <button class="btn btn-wide" id="autoplayAllBtn">▶ Click All Centers</button>
-    </div>
-    
-    <div class="section">
-      <h2>▶️ Playback</h2>
-      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">
-        Robot clicks center of stream to play/pause
-      </p>
-      <div class="grid-4">
-        <button class="btn play-btn" data-stream="0">▶ S1</button>
-        <button class="btn play-btn" data-stream="1">▶ S2</button>
-        <button class="btn play-btn" data-stream="2">▶ S3</button>
-        <button class="btn play-btn" data-stream="3">▶ S4</button>
-      </div>
-    </div>
-    
-    <div class="section">
-      <h2>🔄 Refresh</h2>
-      <div class="grid-4">
-        <button class="btn refresh-btn" data-stream="0">S1</button>
-        <button class="btn refresh-btn" data-stream="1">S2</button>
-        <button class="btn refresh-btn" data-stream="2">S3</button>
-        <button class="btn refresh-btn" data-stream="3">S4</button>
-      </div>
-      <button class="btn btn-wide" id="refreshAll">🔄 Refresh All</button>
-    </div>
-    
-    <div class="section">
-      <h2>📺 Fullscreen</h2>
-      <div class="grid-4">
-        <button class="btn fullscreen-btn" data-stream="0">S1</button>
-        <button class="btn fullscreen-btn" data-stream="1">S2</button>
-        <button class="btn fullscreen-btn" data-stream="2">S3</button>
-        <button class="btn fullscreen-btn" data-stream="3">S4</button>
-      </div>
-      <button class="btn btn-danger btn-wide" id="exitFullscreenBtn">⛶ Exit Fullscreen</button>
-    </div>
-    
-    <div class="section recording-section">
-      <h2>🎯 Record Mute Position</h2>
-      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">
-        Click "Record" then click on the mute button in the stream.
-      </p>
-      <div class="grid-4">
-        <button class="btn record-btn" data-stream="0">🎥 S1</button>
-        <button class="btn record-btn" data-stream="1">🎥 S2</button>
-        <button class="btn record-btn" data-stream="2">🎥 S3</button>
-        <button class="btn record-btn" data-stream="3">🎥 S4</button>
+    <!-- Stream 1 -->
+    <div class="stream-section" data-stream="0">
+      <h3>Stream 1</h3>
+      <div class="btn-row">
+        <button class="btn play-btn">▶</button>
+        <button class="btn refresh-btn">↻</button>
       </div>
       <div class="btn-row">
-        <button class="btn btn-outline" id="applyToAllBtn">📋 Apply to All</button>
-        <button class="btn btn-danger" id="resetMuteBtn">🗑️ Reset All</button>
+        <button class="btn focus-btn">🔊</button>
+        <button class="btn fullscreen-btn">⛶</button>
+      </div>
+      <button class="btn mute-btn">🔇</button>
+      <span class="label">Mute position: <span class="mute-status">-</span></span>
+    </div>
+    
+    <!-- Stream 2 -->
+    <div class="stream-section" data-stream="1">
+      <h3>Stream 2</h3>
+      <div class="btn-row">
+        <button class="btn play-btn">▶</button>
+        <button class="btn refresh-btn">↻</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn focus-btn">🔊</button>
+        <button class="btn fullscreen-btn">⛶</button>
+      </div>
+      <button class="btn mute-btn">🔇</button>
+      <span class="label">Mute position: <span class="mute-status">-</span></span>
+    </div>
+    
+    <!-- Stream 3 -->
+    <div class="stream-section" data-stream="2">
+      <h3>Stream 3</h3>
+      <div class="btn-row">
+        <button class="btn play-btn">▶</button>
+        <button class="btn refresh-btn">↻</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn focus-btn">🔊</button>
+        <button class="btn fullscreen-btn">⛶</button>
+      </div>
+      <button class="btn mute-btn">🔇</button>
+      <span class="label">Mute position: <span class="mute-status">-</span></span>
+    </div>
+    
+    <!-- Stream 4 -->
+    <div class="stream-section" data-stream="3">
+      <h3>Stream 4</h3>
+      <div class="btn-row">
+        <button class="btn play-btn">▶</button>
+        <button class="btn refresh-btn">↻</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn focus-btn">🔊</button>
+        <button class="btn fullscreen-btn">⛶</button>
+      </div>
+      <button class="btn mute-btn">🔇</button>
+      <span class="label">Mute position: <span class="mute-status">-</span></span>
+    </div>
+    
+    <!-- Center Controls -->
+    <div class="center-section">
+      <div class="center-group">
+        <h4>🎯 Play All</h4>
+        <button class="btn" id="playAllBtn">▶ All</button>
+      </div>
+      <div class="center-group">
+        <h4>🔄 Refresh All</h4>
+        <button class="btn" id="refreshAllBtn">↻ All</button>
+      </div>
+      <div class="center-group">
+        <h4>🔇 Mute All</h4>
+        <button class="btn" id="muteAllBtn">🔇 All</button>
+      </div>
+      <div class="center-group">
+        <h4>🎯 Record</h4>
+        <div class="btn-row">
+          <button class="btn record-btn" data-stream="0">S1</button>
+          <button class="btn record-btn" data-stream="1">S2</button>
+          <button class="btn record-btn" data-stream="2">S3</button>
+          <button class="btn record-btn" data-stream="3">S4</button>
+        </div>
+      </div>
+      <div class="center-group">
+        <h4>⚙️ Configure</h4>
+        <a href="/config" class="configure-link">Configure</a>
       </div>
     </div>
     
-    <div class="section">
-      <h2>🔇 Mute (RobotJS)</h2>
-      <p style="font-size: 11px; color: #666; margin-bottom: 10px;">Robot clicks the saved mute position</p>
-      <div class="grid-4">
-        <button class="btn mute-btn" data-stream="0">M1</button>
-        <button class="btn mute-btn" data-stream="1">M2</button>
-        <button class="btn mute-btn" data-stream="2">M3</button>
-        <button class="btn mute-btn" data-stream="3">M4</button>
-      </div>
-      <button class="btn btn-wide" id="muteAllBtn">🔇 Mute All Except Focus</button>
-    </div>
-    
-    <div class="section">
-      <h2>⚙️ Configuration</h2>
-      <a href="/config" class="btn btn-outline btn-wide">⚙️ Configure Streams</a>
-    </div>
   </div>
+  
+  <div class="status" id="status">Connecting...</div>
   
   <script src="/control.js"></script>
 </body>

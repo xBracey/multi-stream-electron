@@ -128,10 +128,12 @@ function handleCommand(cmd, sender) {
         clickOnStream(focusStream, mutePositions[focusStream].x, mutePositions[focusStream].y);
       }
       
-      // Mute all other streams
+      // Mute all other streams (with delay between each)
+      let focusDelay = 250;
       mutePositions.forEach((pos, i) => {
         if (pos && i !== focusStream) {
-          setTimeout(() => clickOnStream(i, pos.x, pos.y), 300);
+          setTimeout(() => clickOnStream(i, pos.x, pos.y), focusDelay);
+          focusDelay += 250;
         }
       });
       
@@ -140,9 +142,11 @@ function handleCommand(cmd, sender) {
       break;
 
     case 'muteall':
+      let muteDelay = 0;
       mutePositions.forEach((pos, i) => {
         if (pos && i !== config.focused) {
-          clickOnStream(i, pos.x, pos.y);
+          setTimeout(() => clickOnStream(i, pos.x, pos.y), muteDelay);
+          muteDelay += 250;
         }
       });
       break;
@@ -293,6 +297,7 @@ function stopRecording() {
   console.log('Robot: Recording stopped');
 }
 
+// Click on stream at specific percentage position
 function clickOnStream(stream, xPercent, yPercent) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   
@@ -309,9 +314,10 @@ function clickOnStream(stream, xPercent, yPercent) {
   robot.moveMouse(targetX, targetY);
   robot.mouseClick();
   
-  console.log(`Robot: Muted stream ${stream + 1} at (${xPercent}%, ${yPercent}%)`);
+  console.log(`Robot: Clicked stream ${stream + 1} at (${xPercent}%, ${yPercent}%)`);
 }
 
+// Click all quadrants (optionally single stream)
 function clickAllQuadrants(xPercent = 50, yPercent = 50, singleStream = null) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   
@@ -328,13 +334,15 @@ function clickAllQuadrants(xPercent = 50, yPercent = 50, singleStream = null) {
     { stream: 3, x: bounds.x + quadrantWidth * 1.5, y: bounds.y + quadrantHeight * 1.5 },
   ];
   
-  streamsToClick.forEach((streamIdx, i) => {
+  let delay = 0;
+  streamsToClick.forEach((streamIdx) => {
     const pos = positions[streamIdx];
     setTimeout(() => {
       robot.moveMouse(pos.x, pos.y);
       robot.mouseClick();
-      console.log(`Robot: Autoplay clicked stream ${streamIdx + 1}`);
-    }, i * 500);
+      console.log(`Robot: Clicked stream ${streamIdx + 1} at center`);
+    }, delay);
+    delay += 250; // 0.25 seconds between each click
   });
 }
 
@@ -456,7 +464,7 @@ app.whenReady().then(() => {
     console.log(`📺 Display: Fullscreen on local monitor`);
     console.log(`📱 Control: http://${ip}:${PORT}`);
     console.log(`⚙️  Config:  http://${ip}:${PORT}/config`);
-    console.log('🤖 Robot auto-click enabled (clicks center every 30s)');
+    console.log('🤖 Robot ready (initial click in 5s)');
     
     const savedMutes = mutePositions.filter(p => p).length;
     if (savedMutes > 0) {
