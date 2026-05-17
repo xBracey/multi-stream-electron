@@ -5,6 +5,7 @@ const ws = new WebSocket(`${protocol}//${location.host}`);
 
 const statusEl = document.getElementById('status');
 let mutePositions = [null, null, null, null];
+let focused = 0;
 let isRecording = false;
 let recordStreamIndex = null;
 
@@ -34,16 +35,21 @@ ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
   
   if (data.type === 'state') {
+    // Update focus buttons
     document.querySelectorAll('.focus-btn').forEach(btn => {
       const stream = parseInt(btn.dataset.stream);
       btn.classList.toggle('active', stream === data.focused);
     });
     
+    focused = data.focused;
+    
+    // Store mute positions
     if (data.mutePositions) {
       mutePositions = data.mutePositions;
       updateMuteIndicators();
     }
     
+    // Update recording state
     if (data.isRecording !== undefined) {
       isRecording = data.isRecording;
       recordStreamIndex = data.recordStreamIndex;
@@ -54,6 +60,11 @@ ws.onmessage = (event) => {
   if (data.type === 'recordingInstruction') {
     statusEl.textContent = `🎥 Move mouse to mute button and click on TV!`;
     statusEl.className = 'status recording';
+  }
+  
+  if (data.type === 'mutePosition') {
+    mutePositions = data.mutePositions;
+    updateMuteIndicators();
   }
 };
 
@@ -100,32 +111,30 @@ function updateRecordingUI() {
   }
 }
 
-// Focus buttons
+// Audio Focus buttons - robot clicks center, mutes others
 document.querySelectorAll('.focus-btn').forEach(btn => {
-  btn.onclick = () => send('focus', { stream: parseInt(btn.dataset.stream) });
+  btn.onclick = () => {
+    const stream = parseInt(btn.dataset.stream);
+    // Send command: robot clicks center of this stream, mutes all others
+    send('audioFocus', { stream });
+  };
+});
+
+// Autoplay all button - robot clicks center of all streams
+document.getElementById('autoplayAllBtn')?.addEventListener('click', () => {
+  send('autoplay');
 });
 
 // Refresh buttons
 document.querySelectorAll('.refresh-btn').forEach(btn => {
-  btn.onclick = () => send('refresh', { stream: parseInt(btn.dataset.stream) });
+  btn.onclick = () => {
+    const stream = parseInt(btn.dataset.stream);
+    send('refresh', { stream });
+  };
 });
 
 document.getElementById('refreshAll')?.addEventListener('click', () => {
   send('refresh', { stream: 'all' });
-});
-
-// Fullscreen buttons
-document.querySelectorAll('.fullscreen-btn').forEach(btn => {
-  btn.onclick = () => send('fullscreen', { stream: parseInt(btn.dataset.stream) });
-});
-
-document.getElementById('exitFullscreenBtn')?.addEventListener('click', () => {
-  send('exitfullscreen');
-});
-
-// Autoplay button
-document.getElementById('autoplayBtn')?.addEventListener('click', () => {
-  send('autoplay');
 });
 
 // Record buttons - start recording mode for a specific stream
@@ -136,9 +145,23 @@ document.querySelectorAll('.record-btn').forEach(btn => {
   };
 });
 
-// Record all button
-document.getElementById('recordAllBtn')?.addEventListener('click', () => {
-  alert('Record a position on one stream first, then click "Apply to All Streams" to use the same position.');
+// Apply to all button
+document.getElementById('applyToAllBtn')?.addEventListener('click', () => {
+  const firstSaved = mutePositions.find(p => p);
+  if (firstSaved) {
+    send('applyToAllStreams', { x: firstSaved.x, y: firstSaved.y });
+  } else {
+    alert('Record a position on at least one stream first!');
+  }
+});
+
+// Reset all mute positions button
+document.getElementById('resetMuteBtn')?.addEventListener('click', () => {
+  if (confirm('Reset all mute button positions?')) {
+    mutePositions = [null, null, null, null];
+    send('resetmutePosition');
+    updateMuteIndicators();
+  }
 });
 
 // Mute buttons
@@ -159,36 +182,7 @@ document.getElementById('muteAllBtn')?.addEventListener('click', () => {
   send('muteall');
 });
 
-// Apply to all button
-document.getElementById('applyToAllBtn')?.addEventListener('click', () => {
-  // Find the first saved position and apply to all
-  const firstSaved = mutePositions.find(p => p);
-  if (firstSaved) {
-    send('applyToAllStreams', { x: firstSaved.x, y: firstSaved.y });
-  } else {
-    alert('Record a position on at least one stream first!');
-  }
-});
-
-// Autoplay buttons - click center of a specific stream
-document.querySelectorAll('.autoplay-btn').forEach(btn => {
-  btn.onclick = () => send('autoplay', { stream: parseInt(btn.dataset.stream) });
-});
-
-// Play buttons
-document.querySelectorAll('.play-btn').forEach(btn => {
-  btn.onclick = () => send('play', { stream: parseInt(btn.dataset.stream) });
-});
-
-document.getElementById('pauseAll')?.addEventListener('click', () => {
-  send('pause', { stream: 'all' });
-});
-
-document.getElementById('playAll')?.addEventListener('click', () => {
-  send('play', { stream: 'all' });
-});
-
-// Add CSS for recording state
+// Add CSS
 const style = document.createElement('style');
 style.textContent = `
   .recording-section { border: 2px solid #ffaa00; }
@@ -207,5 +201,6 @@ style.textContent = `
     25% { transform: translateX(-5px); }
     75% { transform: translateX(5px); }
   }
+  .focus-btn.active { background: #4ecca3 !important; color: #0a0a0f !important; }
 `;
 document.head.appendChild(style);

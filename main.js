@@ -118,6 +118,25 @@ function handleCommand(cmd, sender) {
       }
       break;
 
+    case 'audioFocus':
+      // Click center of focused stream, mute all others
+      const focusStream = cmd.stream;
+      config.focused = focusStream;
+      
+      // Click center of the focused stream to unpause/play
+      clickOnStream(focusStream, 50, 50);
+      
+      // Mute all other streams
+      mutePositions.forEach((pos, i) => {
+        if (pos && i !== focusStream) {
+          setTimeout(() => clickOnStream(i, pos.x, pos.y), 300);
+        }
+      });
+      
+      broadcastState();
+      mainWindow?.webContents.send('focus', focusStream);
+      break;
+
     case 'muteall':
       mutePositions.forEach((pos, i) => {
         if (pos && i !== config.focused) {
@@ -152,6 +171,16 @@ function handleCommand(cmd, sender) {
         saveMutePositions();
         broadcastState();
       }
+      break;
+
+    case 'resetmutePosition':
+      mutePositions = [null, null, null, null];
+      saveMutePositions();
+      broadcastState();
+      console.log('Robot: All mute positions reset');
+      
+      // Also clear the file
+      fs.writeFileSync(path.join(__dirname, 'mute-positions.json'), JSON.stringify(mutePositions, null, 2));
       break;
 
     case 'config':
