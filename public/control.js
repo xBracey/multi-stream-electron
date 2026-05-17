@@ -137,6 +137,26 @@ document.getElementById('refreshAll')?.addEventListener('click', () => {
   send('refresh', { stream: 'all' });
 });
 
+// Playback buttons - robot clicks center of specific stream
+document.querySelectorAll('.play-btn').forEach(btn => {
+  btn.onclick = () => {
+    const stream = parseInt(btn.dataset.stream);
+    send('autoplay', { stream });
+  };
+});
+
+// Fullscreen buttons
+document.querySelectorAll('.fullscreen-btn').forEach(btn => {
+  btn.onclick = () => {
+    const stream = parseInt(btn.dataset.stream);
+    send('fullscreen', { stream });
+  };
+});
+
+document.getElementById('exitFullscreenBtn')?.addEventListener('click', () => {
+  send('exitfullscreen');
+});
+
 // Record buttons - start recording mode for a specific stream
 document.querySelectorAll('.record-btn').forEach(btn => {
   btn.onclick = () => {
