@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configure Streams</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>⚙️ Configure Streams</h1>
+    
+    <div class="status" id="status">Connecting...</div>
+    
+    <div class="streams-list">
+      <div class="stream-item">
+        <label>Stream 1</label>
+        <input type="url" id="stream0" placeholder="https://vipleague.io/stream-page-1">
+      </div>
+      
+      <div class="stream-item">
+        <label>Stream 2</label>
+        <input type="url" id="stream1" placeholder="https://vipleague.io/stream-page-2">
+      </div>
+      
+      <div class="stream-item">
+        <label>Stream 3</label>
+        <input type="url" id="stream2" placeholder="https://vipleague.io/stream-page-3">
+      </div>
+      
+      <div class="stream-item">
+        <label>Stream 4</label>
+        <input type="url" id="stream3" placeholder="https://vipleague.io/stream-page-4">
+      </div>
+    </div>
+    
+    <button class="btn btn-primary btn-wide" id="saveBtn">💾 Save & Apply</button>
+    
+    <div class="nav-link">
+      <a href="/" class="btn btn-outline">← Back to Control</a>
+    </div>
+  </div>
+  
+  <script>
+    // Own WebSocket connection
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${location.host}`);
+    
+    const statusEl = document.getElementById('status');
+    
+    ws.onopen = () => {
+      statusEl.textContent = '🟢 Connected';
+      statusEl.className = 'status connected';
+      // Request config on connect
+      ws.send(JSON.stringify({ type: 'config', action: 'get' }));
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'config') {
+        data.streams.forEach((url, i) => {
+          document.getElementById('stream' + i).value = url || '';
+        });
+      }
+    };
+    
+    ws.onclose = () => {
+      statusEl.textContent = '🔴 Disconnected';
+      statusEl.className = 'status disconnected';
+    };
+    
+    // Save button
+    document.getElementById('saveBtn').onclick = () => {
+      const streams = [0, 1, 2, 3].map(i => {
+        return document.getElementById('stream' + i).value.trim();
+      });
+      
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'config',
+          action: 'set',
+          streams: streams
+        }));
+        
+        statusEl.textContent = '✅ Saved!';
+        statusEl.className = 'status connected';
+        setTimeout(() => {
+          statusEl.textContent = 'Streams saved. Reload display to see changes.';
+        }, 1000);
+      } else {
+        statusEl.textContent = '❌ Not connected';
+        statusEl.className = 'status error';
+      }
+    };
+  </script>
+</body>
+</html>

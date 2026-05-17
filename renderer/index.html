@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Stream Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html, body { height: 100%; overflow: hidden; }
+    
+    body {
+      background: #0a0a0f;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      height: 100vh;
+      gap: 4px;
+      padding: 4px;
+    }
+    
+    .card {
+      position: relative;
+      background: #1a1a2e;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .card iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    
+    .card.fullscreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1000;
+      border-radius: 0;
+    }
+    
+    .card.collapsed { display: none; }
+    
+    .card-label {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.7);
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="grid" id="grid"></div>
+  
+  <script>
+    const grid = document.getElementById('grid');
+    let streams = ['', '', '', ''];
+    let mutePositions = [null, null, null, null];
+    let focused = 0;
+    let fullscreenIndex = null;
+    
+    // Load streams from localStorage
+    function loadFromStorage() {
+      const saved = localStorage.getItem('multiStreamStreams');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length === 4) {
+            streams = parsed;
+          }
+        } catch (e) {}
+      }
+    }
+    
+    // Save streams to localStorage
+    function saveToStorage() {
+      localStorage.setItem('multiStreamStreams', JSON.stringify(streams));
+    }
+    
+    // Load mute positions from localStorage
+    function loadMutePositions() {
+      const saved = localStorage.getItem('mutePositions');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length === 4) {
+            mutePositions = parsed;
+          }
+        } catch (e) {}
+      }
+    }
+    
+    // Load on startup
+    loadFromStorage();
+    loadMutePositions();
+    
+    // Create video cards
+    function createGrid() {
+      grid.innerHTML = '';
+      
+      streams.forEach((url, i) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.id = 'card-' + i;
+        
+        const label = document.createElement('div');
+        label.className = 'card-label';
+        label.textContent = 'Stream ' + (i + 1);
+        card.appendChild(label);
+        
+        if (url) {
+          const iframe = document.createElement('iframe');
+          iframe.id = 'iframe-' + i;
+          iframe.src = url + (url.includes('?') ? '&' : '?') + 'autoplay=1&allow=autoplay';
+          iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-forms allow-scripts');
+          iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+          iframe.setAttribute('allowfullscreen', 'true');
+          iframe.setAttribute('webkitallowfullscreen', 'true');
+          iframe.setAttribute('mozallowfullscreen', 'true');
+          card.appendChild(iframe);
+        }
+        
+        grid.appendChild(card);
+      });
+    }
+    
+    // Update which iframe is unmuted
+    function updateAudio() {
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach((iframe, i) => {
+        if (iframe.contentWindow) {
+          if (i === focused) {
+            iframe.contentWindow.postMessage({ type: 'audio', action: 'unmute' }, '*');
+          } else {
+            iframe.contentWindow.postMessage({ type: 'audio', action: 'mute' }, '*');
+          }
+        }
+      });
+    }
+    
+    // Fullscreen functions
+    function enterFullscreen(index) {
+      const cards = document.querySelectorAll('.card');
+      fullscreenIndex = index;
+      
+      cards.forEach((card, i) => {
+        if (i === index) {
+          card.classList.add('fullscreen');
+        } else {
+          card.classList.add('collapsed');
+        }
+      });
+    }
+    
+    function exitFullscreen() {
+      const cards = document.querySelectorAll('.card');
+      fullscreenIndex = null;
+      
+      cards.forEach(card => {
+        card.classList.remove('fullscreen', 'collapsed');
+      });
+    }
+    
+    // Click at specific position in iframe
+    function clickAtPosition(streamIndex, x, y) {
+      const iframe = document.getElementById('iframe-' + streamIndex);
+      if (iframe) {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'click', x, y }, '*');
+          console.log(`Clicked at (${x}, ${y}) in stream ${streamIndex}`);
+        } catch (e) {
+          console.log('Could not click in stream', streamIndex, '- cross-origin');
+        }
+      }
+    }
+    
+    // Simulate clicks to center
+    function simulateCenterClicks() {
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach((iframe) => {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'click', x: 'center', y: 'center' }, '*');
+        } catch (e) {}
+      });
+    }
+    
+    // Listen for commands from main process via IPC
+    window.electronAPI.onFocus((stream) => {
+      focused = stream;
+      updateAudio();
+    });
+    
+    window.electronAPI.onRefresh((stream) => {
+      if (stream === 'all') {
+        streams.forEach((url, i) => {
+          const iframe = document.getElementById('iframe-' + i);
+          if (iframe) {
+            iframe.src = url;
+          }
+        });
+      } else {
+        const iframe = document.getElementById('iframe-' + stream);
+        if (iframe) {
+          iframe.src = streams[stream];
+        }
+      }
+    });
+    
+    window.electronAPI.onFullscreen((stream) => {
+      focused = stream;
+      enterFullscreen(stream);
+      updateAudio();
+    });
+    
+    window.electronAPI.onExitFullscreen(() => {
+      exitFullscreen();
+    });
+    
+    window.electronAPI.onConfig((newStreams) => {
+      if (newStreams && Array.isArray(newStreams) && newStreams.some(s => s)) {
+        streams = newStreams;
+        saveToStorage();
+        createGrid();
+        if (streams[0]) {
+          focused = 0;
+        }
+        updateAudio();
+      }
+    });
+    
+    window.electronAPI.onPlay((stream) => {
+      const iframes = document.querySelectorAll('iframe');
+      if (stream === 'all') {
+        iframes.forEach((iframe) => {
+          iframe.contentWindow?.postMessage({ type: 'play' }, '*');
+        });
+      } else {
+        const iframe = iframes[stream];
+        if (iframe) {
+          iframe.contentWindow?.postMessage({ type: 'play' }, '*');
+        }
+      }
+    });
+    
+    window.electronAPI.onPause((stream) => {
+      const iframes = document.querySelectorAll('iframe');
+      if (stream === 'all') {
+        iframes.forEach((iframe) => {
+          iframe.contentWindow?.postMessage({ type: 'pause' }, '*');
+        });
+      } else {
+        const iframe = iframes[stream];
+        if (iframe) {
+          iframe.contentWindow?.postMessage({ type: 'pause' }, '*');
+        }
+      }
+    });
+    
+    window.electronAPI.onClick(() => {
+      simulateCenterClicks();
+    });
+    
+    window.electronAPI.onClickPosition((data) => {
+      clickAtPosition(data.stream, data.x, data.y);
+    });
+    
+    // Initial load - use localStorage
+    createGrid();
+    
+    // Block popups from iframes
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('iframe')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+    
+    // Simulate click inside iframes after 5 seconds to enable autoplay
+    setTimeout(() => {
+      simulateCenterClicks();
+    }, 5000);
+    
+    // Keyboard shortcut: Escape to exit fullscreen
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && fullscreenIndex !== null) {
+        exitFullscreen();
+      }
+    });
+    
+    // Click on card to toggle fullscreen
+    grid.addEventListener('click', (e) => {
+      const card = e.target.closest('.card');
+      if (card) {
+        const index = parseInt(card.id.split('-')[1]);
+        if (fullscreenIndex === index) {
+          exitFullscreen();
+        } else if (fullscreenIndex === null) {
+          enterFullscreen(index);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
