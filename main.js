@@ -344,13 +344,21 @@ function clickOnStream(stream, xPercent, yPercent) {
   const quadrantX = stream % 2;
   const quadrantY = Math.floor(stream / 2);
   
-  const targetX = bounds.x + (quadrantX * quadrantWidth) + (quadrantWidth * xPercent / 100);
-  const targetY = bounds.y + (quadrantY * quadrantHeight) + (quadrantHeight * yPercent / 100);
+  // First hover at center of the screen
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  robot.moveMouse(centerX, centerY);
   
-  robot.moveMouse(targetX, targetY);
-  robot.mouseClick();
-  
-  console.log(`Robot: Clicked stream ${stream + 1} at (${xPercent}%, ${yPercent}%)`);
+  // Small delay then move to target
+  setTimeout(() => {
+    const targetX = bounds.x + (quadrantX * quadrantWidth) + (quadrantWidth * xPercent / 100);
+    const targetY = bounds.y + (quadrantY * quadrantHeight) + (quadrantHeight * yPercent / 100);
+    
+    robot.moveMouse(targetX, targetY);
+    robot.mouseClick();
+    
+    console.log(`Robot: Clicked stream ${stream + 1} at (${xPercent}%, ${yPercent}%)`);
+  }, 250);
 }
 
 // Click all quadrants (optionally single stream)
